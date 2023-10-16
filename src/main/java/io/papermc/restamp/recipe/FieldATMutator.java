@@ -1,0 +1,69 @@
+package io.papermc.restamp.recipe;
+
+import io.papermc.restamp.at.ModifierWidener;
+import io.papermc.restamp.utils.RecipeHelper;
+import org.cadixdev.at.AccessTransform;
+import org.cadixdev.at.AccessTransformSet;
+import org.jetbrains.annotations.NotNull;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Recipe;
+import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.tree.J;
+
+import java.util.Objects;
+
+public class FieldATMutator extends Recipe {
+
+    private final AccessTransformSet atDictionary;
+    private final ModifierWidener modifierWidener;
+
+    public FieldATMutator(final AccessTransformSet atDictionary, final ModifierWidener modifierWidener) {
+        this.atDictionary = atDictionary;
+        this.modifierWidener = modifierWidener;
+    }
+
+    @Override
+    public String getDisplayName() {
+        return "Applies access transformers to fields";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Applies pre-configured access transformers to fields in the codebase to make them more accessible";
+    }
+
+    @Override
+    public @NotNull TreeVisitor<?, ExecutionContext> getVisitor() {
+        return new JavaIsoVisitor<>() {
+            @Override
+            @NotNull
+            public J.VariableDeclarations visitVariableDeclarations(@NotNull final J.VariableDeclarations multiVariable,
+                                                                    @NotNull final ExecutionContext executionContext) {
+                final J.VariableDeclarations variableDeclarations = super.visitVariableDeclarations(multiVariable, executionContext);
+
+                final J.ClassDeclaration parentClassDeclaration = RecipeHelper.retrieveFieldClass(getCursor());
+                if (parentClassDeclaration == null || parentClassDeclaration.getType() == null)
+                    return variableDeclarations;
+
+                // Find access transformers for class
+                final AccessTransformSet.Class transformerClass = atDictionary.getClass(
+                        parentClassDeclaration.getType().getFullyQualifiedName()
+                ).orElse(null);
+                if (transformerClass == null) return variableDeclarations;
+
+                // Fetch access transformer to apply to specific field.
+                final AccessTransform accessTransformToApply = variableDeclarations.getVariables().stream()
+                        .map(n -> transformerClass.getField(n.getSimpleName()))
+                        .filter(Objects::nonNull)
+                        .reduce(AccessTransform::merge).orElse(null);
+                if (accessTransformToApply == null) return variableDeclarations;
+
+                // Compute and set new módifiers
+                return variableDeclarations.withModifiers(
+                        modifierWidener.widenModifiers(accessTransformToApply, variableDeclarations.getModifiers())
+                );
+            }
+        };
+    }
+}
