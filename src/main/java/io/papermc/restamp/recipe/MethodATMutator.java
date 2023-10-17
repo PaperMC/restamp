@@ -8,6 +8,7 @@ import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.bombe.type.FieldType;
 import org.cadixdev.bombe.type.MethodDescriptor;
 import org.cadixdev.bombe.type.Type;
+import org.cadixdev.bombe.type.VoidType;
 import org.cadixdev.bombe.type.signature.MethodSignature;
 import org.jetbrains.annotations.NotNull;
 import org.openrewrite.ExecutionContext;
@@ -73,7 +74,8 @@ public class MethodATMutator extends Recipe {
                 }
 
                 // Fetch access transformer to apply to specific field.
-                final Type returnType = atTypeConverter.parse(methodDeclaration.getMethodType().getReturnType());
+                String atMethodName = methodDeclaration.getMethodType().getName();
+                Type returnType = atTypeConverter.parse(methodDeclaration.getMethodType().getReturnType());
                 final List<FieldType> parameterTypes = methodDeclaration.getMethodType().getParameterTypes().stream()
                         .map(atTypeConverter::parse)
                         .map(t -> {
@@ -85,9 +87,15 @@ public class MethodATMutator extends Recipe {
                         })
                         .toList();
 
-                final AccessTransform method = transformerClass.getMethod(new MethodSignature(
-                        methodDeclaration.getSimpleName(), new MethodDescriptor(parameterTypes, returnType)
-                ));
+                // Constructor are *special* in rewrite.
+                if (atMethodName.equals("<constructor>")) {
+                    atMethodName = "<init>";
+                    returnType = VoidType.INSTANCE;
+                }
+
+                final AccessTransform method = transformerClass.replaceMethod(new MethodSignature(
+                        atMethodName, new MethodDescriptor(parameterTypes, returnType)
+                ), AccessTransform.EMPTY);
                 if (method == null) return methodDeclaration;
 
                 return methodDeclaration.withModifiers(

@@ -54,9 +54,10 @@ public class FieldATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 final AccessTransform accessTransformToApply = variableDeclarations.getVariables().stream()
-                        .map(n -> transformerClass.getField(n.getSimpleName()))
+                        .map(n -> transformerClass.replaceField(n.getSimpleName(), AccessTransform.EMPTY))
                         .filter(Objects::nonNull)
-                        .reduce(AccessTransform::merge).orElse(null);
+                        .reduce(AccessTransform::merge)
+                        .orElse(null);
                 if (accessTransformToApply == null) return variableDeclarations;
 
                 // Compute and set new módifiers
