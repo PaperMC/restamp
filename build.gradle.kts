@@ -1,5 +1,5 @@
 plugins {
-    java
+    `java`
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
@@ -15,4 +15,11 @@ dependencies {
     implementation("org.cadixdev:at:0.1.0-rc1")
     implementation("org.apache.logging.log4j:log4j-core:3.0.0-alpha1")
     implementation("org.slf4j:slf4j-api:2.0.9")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.7.1")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
