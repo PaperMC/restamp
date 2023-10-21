@@ -47,7 +47,7 @@ public class RestampFunctionTestHelper {
             executionContext
         ).toList();
 
-        return new RestampInput(executionContext, sourceFiles, accessTransformSet);
+        return new RestampInput(executionContext, sourceFiles, accessTransformSet, false);
     }
 
     /**
