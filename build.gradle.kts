@@ -1,5 +1,5 @@
 plugins {
-    `java`
+    `java-library`
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
@@ -11,8 +11,8 @@ repositories {
 }
 
 dependencies {
-    implementation("org.openrewrite:rewrite-java-17:8.7.4")
-    implementation("org.cadixdev:at:0.1.0-rc1")
+    api("org.openrewrite:rewrite-java-17:8.7.4")
+    api("org.cadixdev:at:0.1.0-rc1")
     implementation("org.apache.logging.log4j:log4j-core:3.0.0-alpha1")
     implementation("org.slf4j:slf4j-api:2.0.9")
 
@@ -21,5 +21,9 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        if (System.getenv()["CI"]?.toBoolean() != true) {
+            excludeTags.add("function")
+        }
+    }
 }

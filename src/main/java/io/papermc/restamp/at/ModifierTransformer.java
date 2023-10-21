@@ -33,12 +33,16 @@ public class ModifierTransformer {
     /**
      * Transforms the modifiers passed in as the list to match the access transform goal passed to the method.
      * <p>
-     * The method follows a specific algorithm that preserves the initial order of modifiers to minimize
+     * The method follows a specific algorithm that preserves the initial order of modifiers to minimize the diff
+     * of restamp's output.
+     * <p>
+     * For specifics on the algorithm, see {@link ModifierTransformationProgress}'s javadocs.
      *
-     * @param accessTransform
-     * @param modifiers
+     * @param accessTransform the access transform to apply to the modifier list.
+     * @param modifiers       the list of modifiers that should be transformed to fit the access transform.
+     * @param parentSpace     the current {@link Space} of the parent that owns the modifiers.
      *
-     * @return
+     * @return the result of the modification.
      */
     @NotNull
     public ModifierTransformationResult transformModifiers(@NotNull final AccessTransform accessTransform,
@@ -94,12 +98,22 @@ public class ModifierTransformer {
             parentSpace
         );
         final List<J.Modifier> resultingModifiers = result.resultingModifiers();
+        Space updatedParentSpace = result.updatedParentSpace();
 
-        // Potentially suffix a final modifier if needed
+        // Potentially suffix a final modifier if needed.
+        // Because we insert at the end, we do not have to care about the potential space of a previous modifier.
+        // However, we do have to handle the edge case of no modifier existing in the result set, in which case final is the only
+        // modifier added, meaning we have to inherit/replace the pareent space.
         boolean mutatedFromOriginal = transformationProgress.mutatedFromOriginal();
         if (!foundFinal && accessTransform.getFinal() == ModifierChange.ADD) {
+            Space finalModifierSpace = Space.SINGLE_SPACE;
+            if (resultingModifiers.isEmpty()) { // Inherit parent space if needed.
+                finalModifierSpace = updatedParentSpace;
+                updatedParentSpace = Space.SINGLE_SPACE;
+            }
+
             resultingModifiers.add(new J.Modifier(
-                Tree.randomId(), Space.SINGLE_SPACE, Markers.EMPTY, null, J.Modifier.Type.Final, Collections.emptyList()
+                Tree.randomId(), finalModifierSpace, Markers.EMPTY, null, J.Modifier.Type.Final, Collections.emptyList()
             ));
             mutatedFromOriginal = true;
         }
@@ -107,7 +121,7 @@ public class ModifierTransformer {
         // Yield back the result, yielding the original list instance if possible.
         return new ModifierTransformationResult(
             mutatedFromOriginal ? resultingModifiers : modifiers,
-            result.updatedParentSpace()
+            updatedParentSpace
         );
     }
 

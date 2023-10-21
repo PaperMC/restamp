@@ -6,7 +6,6 @@ import io.papermc.restamp.RestampInput;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.at.ModifierChange;
-import org.cadixdev.bombe.type.signature.MethodSignature;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -21,19 +20,17 @@ import java.util.List;
 import static io.papermc.restamp.RestampFunctionTestHelper.accessChangeToModifierString;
 
 @Tag("function")
-public class RestampMethodFunctionTest {
+public class RestampClassFunctionTest {
 
     @ParameterizedTest
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)
-    public void testAccessTransformerOnMethod(@NotNull final AccessTransform given,
-                                              @NotNull final AccessTransform target,
-                                              @Nullable final String staticModifier) {
+    public void testAccessTransformerOnClass(@NotNull final AccessTransform given,
+                                             @NotNull final AccessTransform target,
+                                             @Nullable final String staticModifier) {
         final AccessTransformSet accessTransformSet = AccessTransformSet.create();
-        accessTransformSet.getOrCreateClass("io.papermc.test.Test").replaceMethod(
-            MethodSignature.of("test", "(Ljava.lang.Object;)Ljava.lang.String;"), target
-        );
+        accessTransformSet.getOrCreateClass("io.papermc.test.Test").replace(target);
 
-        final RestampInput input = RestampFunctionTestHelper.inputFromSourceString(accessTransformSet, constructMethodTest(
+        final RestampInput input = RestampFunctionTestHelper.inputFromSourceString(accessTransformSet, constructClassTest(
             accessChangeToModifierString(given.getAccess(), staticModifier, given.getFinal() == ModifierChange.ADD ? "final" : null)
         ));
 
@@ -47,26 +44,23 @@ public class RestampMethodFunctionTest {
 
         final SourceFile fileAfterRestamp = results.get(0).getAfter();
         Assertions.assertNotNull(fileAfterRestamp);
-        Assertions.assertEquals(constructMethodTest(
+        Assertions.assertEquals(constructClassTest(
             accessChangeToModifierString(target.getAccess(), staticModifier, target.getFinal() == ModifierChange.ADD ? "final" : null)
         ), fileAfterRestamp.printAll());
     }
 
     @NotNull
-    private String constructMethodTest(@NotNull String modifier) {
+    private String constructClassTest(@NotNull String modifier) {
         if (!modifier.isEmpty()) modifier = modifier + " ";
         return """
             package io.papermc.test;
                         
-            public class Test {
-                
-                /**
-                * Javadocs
-                */
-                @NotNull
-                %sString /* Comment insiede */ test(Object input) {
-                    return String.valueOf(input);
-                }
+            /**
+            * With javadocs!
+            */
+            @Experimental
+            %sclass Test {
+
             }
             """.formatted(modifier);
     }

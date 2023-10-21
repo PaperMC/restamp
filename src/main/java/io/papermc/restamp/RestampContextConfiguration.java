@@ -22,18 +22,21 @@ import java.util.List;
  * This type mainly exists to easily construct/parse restamp input without having to call the underlying rewrite logic to do so manually,
  * This is hence the main configuration entry point for third-party consumers of restamp.
  *
- * @param executionContext   the execution context used for both parsing and running restamp.
- * @param accessTransformSet the set of access transformers to apply to the source files.
- * @param sourceRoot         the path to a common root folder of all source files in {@code sourceFiles}.
- * @param sourceFiles        the list of paths pointing to the source files restamp should apply access transformers to.
- * @param classpath          a list of paths pointing to jars that makeup the classpath for the to be parsed source files.
+ * @param executionContext                        the execution context used for both parsing and running restamp.
+ * @param accessTransformSet                      the set of access transformers to apply to the source files.
+ * @param sourceRoot                              the path to a common root folder of all source files in {@code sourceFiles}.
+ * @param sourceFiles                             the list of paths pointing to the source files restamp should apply access transformers to.
+ * @param classpath                               a list of paths pointing to jars that makeup the classpath for the to be parsed source files.
+ * @param failWithNotApplicableAccessTransformers whether restamp should fail if not all access transformers defined in {@code accessTransformers}
+ *                                                were consumed by restamp.
  */
-public record RestampInputConfiguration(
+public record RestampContextConfiguration(
     @NotNull ExecutionContext executionContext,
     @NotNull AccessTransformSet accessTransformSet,
     @NotNull Path sourceRoot,
     @NotNull List<Path> sourceFiles,
-    @NotNull List<Path> classpath
+    @NotNull List<Path> classpath,
+    boolean failWithNotApplicableAccessTransformers
 ) {
 
     /**
@@ -48,7 +51,7 @@ public record RestampInputConfiguration(
     }
 
     /**
-     * A builder for the {@link RestampInputConfiguration} that allows easy construction of the record.
+     * A builder for the {@link RestampContextConfiguration} that allows easy construction of the record.
      */
     public static class Builder {
 
@@ -58,6 +61,7 @@ public record RestampInputConfiguration(
         private @Nullable Path sourceRoot;
         private @Nullable List<Path> sourceFiles;
         private boolean sourceFilesFromAT;
+        private boolean failWithNotApplicableAccessTransformers = false;
 
         private @NotNull List<Path> classpath = Collections.emptyList();
 
@@ -98,7 +102,7 @@ public record RestampInputConfiguration(
          * @return this builder.
          */
         @NotNull
-        @Contract(value = "_ -> this", mutates = "this")
+        @Contract(value = "_,_ -> this", mutates = "this")
         public Builder accessTransformers(@NotNull final Path accessTransformerPath, @NotNull final AccessTransformFormat accessTransformerFormat) {
             this.accessTransformerPath = accessTransformerPath;
             this.accessTransformerFormat = accessTransformerFormat;
@@ -163,7 +167,20 @@ public record RestampInputConfiguration(
         }
 
         /**
-         * Builds the {@link RestampInputConfiguration} record from the builder.
+         * Configures restamp to fail if not all access transformers were applied during the restamp run
+         * due to the fields/classes/methods referenced not existing anymore.
+         *
+         * @return this builder.
+         */
+        @NotNull
+        @Contract(value = "-> this", mutates = "this")
+        public Builder failWithNotApplicableAccessTransformers() {
+            this.failWithNotApplicableAccessTransformers = true;
+            return this;
+        }
+
+        /**
+         * Builds the {@link RestampContextConfiguration} record from the builder.
          *
          * @return the constructed restamp input configuration.
          *
@@ -172,7 +189,7 @@ public record RestampInputConfiguration(
          */
         @Contract(value = "-> new", pure = true)
         @NotNull
-        public RestampInputConfiguration build() throws IllegalStateException, IOException {
+        public RestampContextConfiguration build() throws IllegalStateException, IOException {
             if (this.executionContext == null) throw new IllegalStateException("Cannot build without an execution context");
             if (this.accessTransformerPath == null) throw new IllegalStateException("Cannot build without the access transformer path!");
             if (this.accessTransformerFormat == null) throw new IllegalStateException("Cannot build without an access transformer format!");
@@ -188,24 +205,28 @@ public record RestampInputConfiguration(
 
                 effectiveSourceFiles = accessTransformSet.getClasses().keySet().stream() // Compute source files from parsed access transformers.
                     .map(s -> s.replace('.', '/'))
-                    .map(s -> (s.substring(0, s.indexOf("$"))) + ".java") // Substring excluding child types.
+                    .map(s -> {
+                        final int firstDollarSign = s.indexOf("$");
+                        return (firstDollarSign >= 0 ? s.substring(0, firstDollarSign) : s) + ".java";
+                    })
                     .distinct()
                     .map(sourceRoot::resolve)
                     .toList();
             }
 
             // Ensure all source files exist
-            final List<Path> sourceFilesThatDoNotExist = this.sourceFiles.stream().filter(p -> !Files.exists(p)).toList();
+            final List<Path> sourceFilesThatDoNotExist = effectiveSourceFiles.stream().filter(p -> !Files.exists(p)).toList();
             if (!sourceFilesThatDoNotExist.isEmpty()) throw new IllegalStateException(
                 "Cannot build with source file paths that do not exist: " + Arrays.toString(sourceFilesThatDoNotExist.toArray())
             );
 
-            return new RestampInputConfiguration(
+            return new RestampContextConfiguration(
                 executionContext,
                 accessTransformSet,
                 sourceRoot,
                 effectiveSourceFiles,
-                classpath
+                classpath,
+                failWithNotApplicableAccessTransformers
             );
         }
 

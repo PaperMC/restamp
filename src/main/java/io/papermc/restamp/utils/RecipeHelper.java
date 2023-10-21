@@ -6,8 +6,21 @@ import org.jetbrains.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.java.tree.J;
 
+/**
+ * The recipe helper type is a pure utility class that holds static helper methods for working with {@link org.openrewrite.Recipe} types.
+ */
 public class RecipeHelper {
 
+    /**
+     * Retrieves the first class declaration found in the cursor by traversing its parents
+     * that is directly above the cursor.
+     * <p>
+     * If the cursor is in a method declaration, null is returned as the field definition is a local in-method declaration.
+     *
+     * @param cursor the cursor to traverse from.
+     *
+     * @return the class declaration or null if no matching one was found.
+     */
     @Nullable
     public static J.ClassDeclaration retrieveFieldClass(final Cursor cursor) {
         final Object foundParent = cursor.dropParentUntil(parent ->

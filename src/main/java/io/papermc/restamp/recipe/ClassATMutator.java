@@ -11,6 +11,9 @@ import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
 
+/**
+ * The {@link ClassATMutator} recipe is responsible for applying access transformers to class definitions across the source files provided.
+ */
 public class ClassATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;
@@ -50,14 +53,17 @@ public class ClassATMutator extends Recipe {
                 final AccessTransform accessTransform = transformerClass.get();
                 if (accessTransform.isEmpty()) return classDeclaration;
 
+                transformerClass.replace(AccessTransform.EMPTY); // Mark as consumed
+
                 final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
                     accessTransform,
                     classDeclaration.getModifiers(),
-                    classDeclaration.getPrefix()
+                    classDeclaration.getAnnotations().getKind().getPrefix()
                 );
+
                 return classDeclaration
                     .withModifiers(transformationResult.newModifiers())
-                    .withPrefix(transformationResult.parentSpace());
+                    .getAnnotations().withKind(classDeclaration.getAnnotations().getKind().withPrefix(transformationResult.parentSpace()));
             }
         };
     }

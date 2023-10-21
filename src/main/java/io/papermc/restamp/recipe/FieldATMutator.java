@@ -16,6 +16,9 @@ import org.openrewrite.java.tree.Space;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * The {@link FieldATMutator} recipe is responsible for applying access transformers to field definitions across the source files provided.
+ */
 public class FieldATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;

@@ -17,13 +17,16 @@ import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.Space;
+import org.openrewrite.java.tree.TypeTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * The {@link MethodATMutator} recipe is responsible for applying access transformers to method definitions across the source files provided.
+ */
 public class MethodATMutator extends Recipe {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodATMutator.class);
@@ -78,9 +81,9 @@ public class MethodATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 String atMethodName = methodDeclaration.getMethodType().getName();
-                Type returnType = atTypeConverter.parse(methodDeclaration.getMethodType().getReturnType());
+                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType());
                 final List<FieldType> parameterTypes = methodDeclaration.getMethodType().getParameterTypes().stream()
-                    .map(atTypeConverter::parse)
+                    .map(atTypeConverter::convert)
                     .map(t -> {
                         if (!(t instanceof final FieldType fieldType)) {
                             LOGGER.warn("Method {} had unexpected non-field parameter type: {}", methodIdentifier, t);
@@ -101,14 +104,21 @@ public class MethodATMutator extends Recipe {
                 ), AccessTransform.EMPTY);
                 if (accessTransform == null || accessTransform.isEmpty()) return methodDeclaration;
 
+                final TypeTree returnTypeExpression = methodDeclaration.getReturnTypeExpression();
                 final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
                     accessTransform,
                     methodDeclaration.getModifiers(),
-                    Optional.ofNullable(methodDeclaration.getReturnTypeExpression()).map(J::getPrefix).orElse(Space.EMPTY)
+                    Optional.ofNullable(returnTypeExpression).map(J::getPrefix).orElse(methodDeclaration.getName().getPrefix())
                 );
-                return methodDeclaration
-                    .withModifiers(transformationResult.newModifiers())
-                    .withReturnTypeExpression(methodDeclaration.getReturnTypeExpression().withPrefix(transformationResult.parentSpace()));
+
+                J.MethodDeclaration updated = methodDeclaration.withModifiers(transformationResult.newModifiers());
+                if (returnTypeExpression != null) {
+                    updated = updated.withReturnTypeExpression(returnTypeExpression.withPrefix(transformationResult.parentSpace()));
+                } else {
+                    updated = updated.withName(updated.getName().withPrefix(transformationResult.parentSpace()));
+                }
+
+                return updated;
             }
         };
     }

@@ -5,6 +5,8 @@ import io.papermc.restamp.utils.RecipeHelper;
 import org.cadixdev.at.AccessChange;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.ModifierChange;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,9 +27,11 @@ class ModifierTransformerTest {
 
     @ParameterizedTest
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)
-    public void testModifyVisibilityTransformation(final AccessChange current, final AccessChange wanted) {
+    public void testModifyVisibilityTransformation(@NotNull final AccessTransform current,
+                                                   @NotNull final AccessTransform wanted,
+                                                   @Nullable final String staticModifierExisting) {
         final List<J.Modifier> modifiers = new ArrayList<>();
-        final J.Modifier.Type type = switch (current) {
+        final J.Modifier.Type type = switch (current.getAccess()) {
             case PRIVATE -> J.Modifier.Type.Private;
             case PROTECTED -> J.Modifier.Type.Protected;
             case PUBLIC -> J.Modifier.Type.Public;
@@ -36,19 +40,24 @@ class ModifierTransformerTest {
         if (type != null) {
             modifiers.add(modifierFrom(Space.EMPTY, type));
         }
-        modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Static));
-        modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Final));
+        if (staticModifierExisting != null) modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Static));
+        if (current.getFinal() == ModifierChange.ADD) modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Final));
 
-        final ModifierTransformationResult result = transformer.transformModifiers(AccessTransform.of(wanted), modifiers, Space.SINGLE_SPACE);
+        final ModifierTransformationResult result = transformer.transformModifiers(wanted, modifiers, Space.SINGLE_SPACE);
 
         final List<J.Modifier> newModifiers = result.newModifiers();
 
-        Assertions.assertEquals(wanted == AccessChange.PACKAGE_PRIVATE ? 2 : 3, newModifiers.size());
-        if (wanted != AccessChange.PACKAGE_PRIVATE) {
-            Assertions.assertEquals(RecipeHelper.typeFromAccessChange(wanted), newModifiers.remove(0).getType());
+        int expectedModifierSize = 0;
+        if (wanted.getAccess() != AccessChange.PACKAGE_PRIVATE) expectedModifierSize++;
+        if (wanted.getFinal() == ModifierChange.ADD) expectedModifierSize++;
+        if (staticModifierExisting != null) expectedModifierSize++;
+
+        Assertions.assertEquals(expectedModifierSize, newModifiers.size());
+        if (wanted.getAccess() != AccessChange.PACKAGE_PRIVATE) {
+            Assertions.assertEquals(RecipeHelper.typeFromAccessChange(wanted.getAccess()), newModifiers.remove(0).getType());
         }
-        Assertions.assertEquals(J.Modifier.Type.Static, newModifiers.remove(0).getType());
-        Assertions.assertEquals(J.Modifier.Type.Final, newModifiers.remove(0).getType());
+        if (staticModifierExisting != null) Assertions.assertEquals(J.Modifier.Type.Static, newModifiers.remove(0).getType());
+        if (wanted.getFinal() == ModifierChange.ADD) Assertions.assertEquals(J.Modifier.Type.Final, newModifiers.remove(0).getType());
     }
 
     @Test
