@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `maven-publish`
     id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
@@ -22,8 +23,13 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform {
-        if (System.getenv()["CI"]?.toBoolean() != true) {
-            excludeTags.add("function")
-        }
+        if (System.getenv()["CI"]?.toBoolean() != true) excludeTags.add("function")
+    }
+}
+
+publishing {
+    publications.create<MavenPublication>("maven") {
+        artifactId = "restamp"
+        from(components["java"])
     }
 }

@@ -24,7 +24,7 @@ public class RecipeHelper {
     @Nullable
     public static J.ClassDeclaration retrieveFieldClass(final Cursor cursor) {
         final Object foundParent = cursor.dropParentUntil(parent ->
-            parent instanceof J.ClassDeclaration || parent instanceof J.MethodDeclaration
+            parent instanceof J.ClassDeclaration || parent instanceof J.MethodDeclaration || parent instanceof J.Lambda
         ).getValue();
         if (foundParent instanceof final J.ClassDeclaration parentClass) return parentClass;
         return null;

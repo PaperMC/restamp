@@ -35,17 +35,16 @@ public record RestampInput(
      */
     @NotNull
     public static RestampInput parseFrom(@NotNull final RestampContextConfiguration contextConfiguration) {
-        final InMemoryExecutionContext executionContext = new InMemoryExecutionContext();
         final Java17Parser parser = Java17Parser.builder().classpath(contextConfiguration.classpath()).build();
 
         final List<SourceFile> sourceFiles = parser.parse(
             contextConfiguration.sourceFiles(),
             contextConfiguration.sourceRoot(),
-            executionContext
+            contextConfiguration.executionContext()
         ).toList();
 
         return new RestampInput(
-            executionContext,
+            contextConfiguration.executionContext(),
             sourceFiles,
             contextConfiguration.accessTransformSet(),
             contextConfiguration.failWithNotApplicableAccessTransformers()
