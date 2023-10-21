@@ -1,6 +1,7 @@
 package io.papermc.restamp.recipe;
 
-import io.papermc.restamp.at.ModifierWidener;
+import io.papermc.restamp.at.ModifierTransformationResult;
+import io.papermc.restamp.at.ModifierTransformer;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
 import org.jetbrains.annotations.NotNull;
@@ -10,14 +11,17 @@ import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
 
+/**
+ * The {@link ClassATMutator} recipe is responsible for applying access transformers to class definitions across the source files provided.
+ */
 public class ClassATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;
-    private final ModifierWidener modifierWidener;
+    private final ModifierTransformer modifierTransformer;
 
-    public ClassATMutator(final AccessTransformSet atDictionary, final ModifierWidener modifierWidener) {
+    public ClassATMutator(final AccessTransformSet atDictionary, final ModifierTransformer modifierTransformer) {
         this.atDictionary = atDictionary;
-        this.modifierWidener = modifierWidener;
+        this.modifierTransformer = modifierTransformer;
     }
 
     @Override
@@ -42,15 +46,26 @@ public class ClassATMutator extends Recipe {
 
                 // Find access transformers for class
                 final AccessTransformSet.Class transformerClass = atDictionary.getClass(
-                        classDeclaration.getType().getFullyQualifiedName()
+                    classDeclaration.getType().getFullyQualifiedName()
                 ).orElse(null);
                 if (transformerClass == null) return classDeclaration;
 
                 final AccessTransform accessTransform = transformerClass.get();
-                return classDeclaration.withModifiers(
-                        modifierWidener.widenModifiers(accessTransform, classDeclaration.getModifiers())
+                if (accessTransform.isEmpty()) return classDeclaration;
+
+                transformerClass.replace(AccessTransform.EMPTY); // Mark as consumed
+
+                final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
+                    accessTransform,
+                    classDeclaration.getModifiers(),
+                    classDeclaration.getAnnotations().getKind().getPrefix()
                 );
+
+                return classDeclaration
+                    .withModifiers(transformationResult.newModifiers())
+                    .getAnnotations().withKind(classDeclaration.getAnnotations().getKind().withPrefix(transformationResult.parentSpace()));
             }
         };
     }
+
 }

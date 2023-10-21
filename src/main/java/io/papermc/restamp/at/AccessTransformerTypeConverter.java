@@ -9,12 +9,26 @@ import org.cadixdev.bombe.type.VoidType;
 import org.jetbrains.annotations.NotNull;
 import org.openrewrite.java.tree.JavaType;
 
+/**
+ * The access transformer type converter is responsible for converting between types from {@link Type} and rewrites {@link JavaType}.
+ */
 public class AccessTransformerTypeConverter {
 
     private static final FieldType OBJECT = FieldType.of(Object.class);
 
+    /**
+     * Converts the passed {@link JavaType} to a {@link Type} if possible.
+     * Generic type variables are erased to a {@link java.util.Objects}, while all
+     * other types are properly mapped.
+     *
+     * @param javaType the rewrite java type to convert into a access transformer type.
+     *
+     * @return the converted type.
+     *
+     * @throws IllegalArgumentException if the passed java type could not be converted.
+     */
     @NotNull
-    public Type parse(@NotNull final JavaType javaType) throws IllegalArgumentException {
+    public Type convert(@NotNull final JavaType javaType) throws IllegalArgumentException {
         if (javaType instanceof final JavaType.Primitive primitive) {
             return switch (primitive) {
                 case Boolean -> BaseType.BOOLEAN;
@@ -50,11 +64,15 @@ public class AccessTransformerTypeConverter {
                 currentArrayType = childArrayType;
             }
 
-            final Type parsedArrayBaseType = this.parse(currentArrayType.getElemType());
+            final Type parsedArrayBaseType = this.convert(currentArrayType.getElemType());
             if (!(parsedArrayBaseType instanceof final FieldType arrayBasedFieldType))
                 throw new IllegalArgumentException("Cannot convert array with non-field type base: " + array);
 
             return new ArrayType(dimension, arrayBasedFieldType);
+        }
+
+        if (javaType instanceof final JavaType.Unknown unknown) {
+            throw new IllegalArgumentException("Cannot map unexpected type " + unknown.getClassName());
         }
 
         throw new IllegalArgumentException("Cannot map unexpected type " + javaType.getJacksonPolymorphicTypeTag());

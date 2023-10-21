@@ -1,59 +1,69 @@
 package io.papermc.restamp;
 
 import io.papermc.restamp.at.AccessTransformerTypeConverter;
-import io.papermc.restamp.at.ModifierWidener;
+import io.papermc.restamp.at.ModifierTransformer;
 import io.papermc.restamp.recipe.ClassATMutator;
 import io.papermc.restamp.recipe.FieldATMutator;
 import io.papermc.restamp.recipe.MethodATMutator;
+import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
-import org.cadixdev.at.io.AccessTransformFormats;
-import org.openrewrite.InMemoryExecutionContext;
-import org.openrewrite.Recipe;
-import org.openrewrite.SourceFile;
+import org.cadixdev.bombe.type.signature.MethodSignature;
+import org.jetbrains.annotations.NotNull;
+import org.openrewrite.Changeset;
+import org.openrewrite.config.CompositeRecipe;
 import org.openrewrite.internal.InMemoryLargeSourceSet;
-import org.openrewrite.java.Java17Parser;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * The main executor of restamp.
+ */
 public class Restamp {
 
-    private static final Path ATS = Path.of("/Users/lynx/workspace/paper/paper/.gradle/caches/paperweight/taskCache/mergeAdditionalAts.at");
-    private static final Path SOURCE_FILES = Path.of("/Users/lynx/workspace/paper/mache/versions/23w40a/src/main/java");
-
-    public static void main(final String[] args) throws IOException {
-        final List<Path> classpath = Files.readAllLines(Path.of("classpath.txt")).stream().map(Path::of).toList();
-
-        final InMemoryExecutionContext executionContext = new InMemoryExecutionContext(Throwable::printStackTrace);
-
-        // Construct access transformers and recipe helpers
-        final AccessTransformSet accessTransformSet = AccessTransformFormats.FML.read(ATS);
-        final ModifierWidener modifierWidener = new ModifierWidener();
+    /**
+     * Executes restamp given the provided restamp input.
+     *
+     * @param input the input to restamp.
+     *
+     * @return the computed changeset.
+     */
+    @NotNull
+    public static Changeset run(@NotNull final RestampInput input) {
+        final ModifierTransformer modifierTransformer = new ModifierTransformer();
         final AccessTransformerTypeConverter accessTransformerTypeConverter = new AccessTransformerTypeConverter();
+        final AccessTransformSet accessTransformSet = input.accessTransformers();
 
-        final List<Path> sourceFiles = accessTransformSet.getClasses().keySet().stream()
-                .map(s -> s.replace('.', '/'))
-                .map(s -> s.split("\\$", 2)[0] + ".java")
-                .distinct()
-                .map(SOURCE_FILES::resolve)
-                .filter(Files::exists) // includes CB files right now, which mache does not include.
-                .toList();
+        final CompositeRecipe compositeRecipe = new CompositeRecipe(List.of(
+            new FieldATMutator(accessTransformSet, modifierTransformer),
+            new MethodATMutator(accessTransformSet, modifierTransformer, accessTransformerTypeConverter),
+            new ClassATMutator(accessTransformSet, modifierTransformer)
+        ));
 
-        final Java17Parser java17Parser = Java17Parser.builder().classpath(classpath).build();
-        final List<SourceFile> parseResult = java17Parser.parse(sourceFiles, SOURCE_FILES, executionContext).toList();
-        final InMemoryLargeSourceSet sourceSet = new InMemoryLargeSourceSet(parseResult);
+        final InMemoryLargeSourceSet inMemoryLargeSourceSet = new InMemoryLargeSourceSet(input.sources());
 
-        final List<Recipe> recipesToRun = List.of(
-                new FieldATMutator(accessTransformSet, modifierWidener),
-                new ClassATMutator(accessTransformSet, modifierWidener),
-                new MethodATMutator(accessTransformSet, modifierWidener, accessTransformerTypeConverter)
+        final Changeset changeset = compositeRecipe.run(inMemoryLargeSourceSet, input.executionContext()).getChangeset();
+
+        // Delete all classes that have no access transformers left to apply.
+        final List<AccessTransformSet.Class> atClassSet = new ArrayList<>(accessTransformSet.getClasses().values());
+        atClassSet.removeIf(c ->
+            c.get().isEmpty()
+                && c.getFields().values().stream().allMatch(AccessTransform::isEmpty)
+                && c.getMethods().values().stream().allMatch(AccessTransform::isEmpty)
         );
-        recipesToRun.stream()
-                .map(r -> r.run(sourceSet, executionContext))
-                .flatMap(r -> r.getChangeset().getAllResults().stream())
-                .forEach(r -> System.out.println(r.diff()));
+        if (atClassSet.isEmpty() || !input.failWithNotApplicableAccessTransformers()) return changeset;
+
+        // Not all ats applied, error if configured to do so.
+        final String notAppliedAccessTransformers = atClassSet.stream().map(c ->
+            "%s: [%s] {%s}".formatted(
+                c.getName(),
+                String.join(", ", c.getFields().keySet()),
+                c.getMethods().keySet().stream().map(MethodSignature::toJvmsIdentifier).collect(Collectors.joining(", "))
+            )
+        ).collect(Collectors.joining(",\n"));
+
+        throw new IllegalStateException("Could not apply access transformers: " + notAppliedAccessTransformers);
     }
 
 }

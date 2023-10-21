@@ -1,6 +1,7 @@
 package io.papermc.restamp.recipe;
 
-import io.papermc.restamp.at.ModifierWidener;
+import io.papermc.restamp.at.ModifierTransformationResult;
+import io.papermc.restamp.at.ModifierTransformer;
 import io.papermc.restamp.utils.RecipeHelper;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
@@ -10,17 +11,22 @@ import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.Space;
 
 import java.util.Objects;
+import java.util.Optional;
 
+/**
+ * The {@link FieldATMutator} recipe is responsible for applying access transformers to field definitions across the source files provided.
+ */
 public class FieldATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;
-    private final ModifierWidener modifierWidener;
+    private final ModifierTransformer modifierTransformer;
 
-    public FieldATMutator(final AccessTransformSet atDictionary, final ModifierWidener modifierWidener) {
+    public FieldATMutator(final AccessTransformSet atDictionary, final ModifierTransformer modifierTransformer) {
         this.atDictionary = atDictionary;
-        this.modifierWidener = modifierWidener;
+        this.modifierTransformer = modifierTransformer;
     }
 
     @Override
@@ -48,23 +54,30 @@ public class FieldATMutator extends Recipe {
 
                 // Find access transformers for class
                 final AccessTransformSet.Class transformerClass = atDictionary.getClass(
-                        parentClassDeclaration.getType().getFullyQualifiedName()
+                    parentClassDeclaration.getType().getFullyQualifiedName()
                 ).orElse(null);
                 if (transformerClass == null) return variableDeclarations;
 
                 // Fetch access transformer to apply to specific field.
                 final AccessTransform accessTransformToApply = variableDeclarations.getVariables().stream()
-                        .map(n -> transformerClass.replaceField(n.getSimpleName(), AccessTransform.EMPTY))
-                        .filter(Objects::nonNull)
-                        .reduce(AccessTransform::merge)
-                        .orElse(null);
-                if (accessTransformToApply == null) return variableDeclarations;
+                    .map(n -> transformerClass.replaceField(n.getSimpleName(), AccessTransform.EMPTY))
+                    .filter(Objects::nonNull)
+                    .reduce(AccessTransform::merge)
+                    .orElse(AccessTransform.EMPTY);
+                if (accessTransformToApply.isEmpty()) return variableDeclarations;
 
                 // Compute and set new módifiers
-                return variableDeclarations.withModifiers(
-                        modifierWidener.widenModifiers(accessTransformToApply, variableDeclarations.getModifiers())
+                final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
+                    accessTransformToApply,
+                    variableDeclarations.getModifiers(),
+                    Optional.ofNullable(variableDeclarations.getTypeExpression()).map(J::getPrefix).orElse(Space.EMPTY)
                 );
+                final J.VariableDeclarations updated = variableDeclarations
+                    .withModifiers(transformationResult.newModifiers())
+                    .withTypeExpression(variableDeclarations.getTypeExpression().withPrefix(transformationResult.parentSpace()));
+                return updated;
             }
         };
     }
+
 }

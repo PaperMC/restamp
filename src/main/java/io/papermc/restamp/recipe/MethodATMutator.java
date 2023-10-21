@@ -1,7 +1,8 @@
 package io.papermc.restamp.recipe;
 
 import io.papermc.restamp.at.AccessTransformerTypeConverter;
-import io.papermc.restamp.at.ModifierWidener;
+import io.papermc.restamp.at.ModifierTransformationResult;
+import io.papermc.restamp.at.ModifierTransformer;
 import io.papermc.restamp.utils.RecipeHelper;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
@@ -16,24 +17,29 @@ import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.TypeTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * The {@link MethodATMutator} recipe is responsible for applying access transformers to method definitions across the source files provided.
+ */
 public class MethodATMutator extends Recipe {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodATMutator.class);
 
     private final AccessTransformSet atDictionary;
-    private final ModifierWidener modifierWidener;
+    private final ModifierTransformer modifierTransformer;
     private final AccessTransformerTypeConverter atTypeConverter;
 
     public MethodATMutator(final AccessTransformSet atDictionary,
-                           final ModifierWidener modifierWidener,
+                           final ModifierTransformer modifierTransformer,
                            final AccessTransformerTypeConverter atTypeConverter) {
         this.atDictionary = atDictionary;
-        this.modifierWidener = modifierWidener;
+        this.modifierTransformer = modifierTransformer;
         this.atTypeConverter = atTypeConverter;
     }
 
@@ -62,7 +68,7 @@ public class MethodATMutator extends Recipe {
 
                 // Find access transformers for class
                 final AccessTransformSet.Class transformerClass = atDictionary.getClass(
-                        parentClassDeclaration.getType().getFullyQualifiedName()
+                    parentClassDeclaration.getType().getFullyQualifiedName()
                 ).orElse(null);
                 if (transformerClass == null) return methodDeclaration;
 
@@ -75,17 +81,17 @@ public class MethodATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 String atMethodName = methodDeclaration.getMethodType().getName();
-                Type returnType = atTypeConverter.parse(methodDeclaration.getMethodType().getReturnType());
+                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType());
                 final List<FieldType> parameterTypes = methodDeclaration.getMethodType().getParameterTypes().stream()
-                        .map(atTypeConverter::parse)
-                        .map(t -> {
-                            if (!(t instanceof final FieldType fieldType)) {
-                                LOGGER.warn("Method {} had unexpected non-field parameter type: {}", methodIdentifier, t);
-                                return null;
-                            }
-                            return fieldType;
-                        })
-                        .toList();
+                    .map(atTypeConverter::convert)
+                    .map(t -> {
+                        if (!(t instanceof final FieldType fieldType)) {
+                            LOGGER.warn("Method {} had unexpected non-field parameter type: {}", methodIdentifier, t);
+                            return null;
+                        }
+                        return fieldType;
+                    })
+                    .toList();
 
                 // Constructor are *special* in rewrite.
                 if (atMethodName.equals("<constructor>")) {
@@ -93,15 +99,28 @@ public class MethodATMutator extends Recipe {
                     returnType = VoidType.INSTANCE;
                 }
 
-                final AccessTransform method = transformerClass.replaceMethod(new MethodSignature(
-                        atMethodName, new MethodDescriptor(parameterTypes, returnType)
+                final AccessTransform accessTransform = transformerClass.replaceMethod(new MethodSignature(
+                    atMethodName, new MethodDescriptor(parameterTypes, returnType)
                 ), AccessTransform.EMPTY);
-                if (method == null) return methodDeclaration;
+                if (accessTransform == null || accessTransform.isEmpty()) return methodDeclaration;
 
-                return methodDeclaration.withModifiers(
-                        modifierWidener.widenModifiers(method, methodDeclaration.getModifiers())
+                final TypeTree returnTypeExpression = methodDeclaration.getReturnTypeExpression();
+                final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
+                    accessTransform,
+                    methodDeclaration.getModifiers(),
+                    Optional.ofNullable(returnTypeExpression).map(J::getPrefix).orElse(methodDeclaration.getName().getPrefix())
                 );
+
+                J.MethodDeclaration updated = methodDeclaration.withModifiers(transformationResult.newModifiers());
+                if (returnTypeExpression != null) {
+                    updated = updated.withReturnTypeExpression(returnTypeExpression.withPrefix(transformationResult.parentSpace()));
+                } else {
+                    updated = updated.withName(updated.getName().withPrefix(transformationResult.parentSpace()));
+                }
+
+                return updated;
             }
         };
     }
+
 }
