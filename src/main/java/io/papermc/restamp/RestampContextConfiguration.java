@@ -56,8 +56,7 @@ public record RestampContextConfiguration(
     public static class Builder {
 
         private @Nullable ExecutionContext executionContext;
-        private @Nullable Path accessTransformerPath;
-        private @Nullable AccessTransformFormat accessTransformerFormat;
+        private @Nullable AccessTransformSet accessTransformSet;
         private @Nullable Path sourceRoot;
         private @Nullable List<Path> sourceFiles;
         private boolean sourceFilesFromAT;
@@ -85,12 +84,31 @@ public record RestampContextConfiguration(
          *
          * @param accessTransformerPath the path to the access transformers.
          *
+         * @throws IOException when something goes wrong loading the accessTransformSet
+         *
          * @return this builder.
          */
         @NotNull
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder accessTransformers(@NotNull final Path accessTransformerPath) {
+        public Builder accessTransformers(@NotNull final Path accessTransformerPath) throws IOException {
             return this.accessTransformers(accessTransformerPath, AccessTransformFormats.FML);
+        }
+
+        /**
+         * Sets the path pointing to the file holding the access transformers.
+         *
+         * @param accessTransformerPath   the path to the access transformers.
+         * @param accessTransformerFormat the format of the access transformers defined in the file at the provided path.
+         *
+         * @throws IOException when something goes wrong loading the accessTransformSet
+         *
+         * @return this builder.
+         */
+        @NotNull
+        @Contract(value = "_,_ -> this", mutates = "this")
+        public Builder accessTransformers(@NotNull final Path accessTransformerPath, @NotNull final AccessTransformFormat accessTransformerFormat) throws IOException {
+            this.accessTransformSet = accessTransformerFormat.read(accessTransformerPath);
+            return this;
         }
 
         /**
@@ -103,9 +121,9 @@ public record RestampContextConfiguration(
          */
         @NotNull
         @Contract(value = "_,_ -> this", mutates = "this")
-        public Builder accessTransformers(@NotNull final Path accessTransformerPath, @NotNull final AccessTransformFormat accessTransformerFormat) {
-            this.accessTransformerPath = accessTransformerPath;
-            this.accessTransformerFormat = accessTransformerFormat;
+        public Builder accessTransformSet(@NotNull final AccessTransformSet accessTransformSet) {
+            this.accessTransformSet = AccessTransformSet.create();
+            this.accessTransformSet.merge(accessTransformSet);
             return this;
         }
 
@@ -189,13 +207,10 @@ public record RestampContextConfiguration(
          */
         @Contract(value = "-> new", pure = true)
         @NotNull
-        public RestampContextConfiguration build() throws IllegalStateException, IOException {
+        public RestampContextConfiguration build() throws IllegalStateException {
             if (this.executionContext == null) throw new IllegalStateException("Cannot build without an execution context");
-            if (this.accessTransformerPath == null) throw new IllegalStateException("Cannot build without the access transformer path!");
-            if (this.accessTransformerFormat == null) throw new IllegalStateException("Cannot build without an access transformer format!");
+            if (this.accessTransformSet == null) throw new IllegalStateException("Cannot build without access transformers!");
             if (this.sourceRoot == null) throw new IllegalStateException("Cannot build without a source root path!");
-
-            final AccessTransformSet accessTransformSet = this.accessTransformerFormat.read(this.accessTransformerPath);
 
             List<Path> effectiveSourceFiles = this.sourceFiles;
             final boolean sourceFilesEmpty = effectiveSourceFiles == null || effectiveSourceFiles.isEmpty();
@@ -203,7 +218,7 @@ public record RestampContextConfiguration(
             if (sourceFilesEmpty) {
                 if (!this.sourceFilesFromAT) throw new IllegalStateException("Cannot build without source files!");
 
-                effectiveSourceFiles = accessTransformSet.getClasses().keySet().stream() // Compute source files from parsed access transformers.
+                effectiveSourceFiles = this.accessTransformSet.getClasses().keySet().stream() // Compute source files from parsed access transformers.
                     .map(s -> s.replace('.', '/'))
                     .map(s -> {
                         final int firstDollarSign = s.indexOf("$");
@@ -222,7 +237,7 @@ public record RestampContextConfiguration(
 
             return new RestampContextConfiguration(
                 executionContext,
-                accessTransformSet,
+                this.accessTransformSet,
                 sourceRoot,
                 effectiveSourceFiles,
                 classpath,
