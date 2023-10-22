@@ -17,6 +17,7 @@ import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,9 +82,9 @@ public class MethodATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 String atMethodName = methodDeclaration.getMethodType().getName();
-                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType());
+                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType(), () -> "Parsing return type " + methodDeclaration.getReturnTypeExpression().toString() + " of method " + methodIdentifier);
                 final List<FieldType> parameterTypes = methodDeclaration.getMethodType().getParameterTypes().stream()
-                    .map(atTypeConverter::convert)
+                    .map((JavaType javaType) -> atTypeConverter.convert(javaType, () -> "Parsing parameter a of method " + methodIdentifier))
                     .map(t -> {
                         if (!(t instanceof final FieldType fieldType)) {
                             LOGGER.warn("Method {} had unexpected non-field parameter type: {}", methodIdentifier, t);
