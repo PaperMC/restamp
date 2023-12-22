@@ -27,9 +27,28 @@ tasks.test {
     }
 }
 
+tasks.jar {
+    manifest {
+        attributes("Implementation-Version" to project.version)
+    }
+}
+
 publishing {
+    repositories {
+        maven("https://repo.papermc.io/repository/maven-snapshots/") {
+            credentials(PasswordCredentials::class)
+            name = "paper"
+        }
+    }
+
     publications.create<MavenPublication>("maven") {
         artifactId = "restamp"
         from(components["java"])
+    }
+}
+
+tasks.register("printVersion") {
+    doFirst {
+        println(version)
     }
 }
