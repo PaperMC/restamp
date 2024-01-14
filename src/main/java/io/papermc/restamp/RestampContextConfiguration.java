@@ -59,7 +59,7 @@ public record RestampContextConfiguration(
         private @Nullable AccessTransformSet accessTransformSet;
         private @Nullable Path sourceRoot;
         private @Nullable List<Path> sourceFiles;
-        private boolean sourceFilesFromAT;
+        private @NotNull SourceFileMode sourceFileMode = SourceFileMode.MANUAL;
         private boolean failWithNotApplicableAccessTransformers = false;
 
         private @NotNull List<Path> classpath = Collections.emptyList();
@@ -166,7 +166,23 @@ public record RestampContextConfiguration(
         @NotNull
         @Contract(value = "-> this", mutates = "this")
         public Builder sourceFilesFromAccessTransformers() {
-            this.sourceFilesFromAT = true;
+            this.sourceFileMode = SourceFileMode.FROM_AT_STRICT;
+            return this;
+        }
+
+        /**
+         * Configures this builder to compute the source files needed during the {@link #build()} process
+         * based on the {@link #accessTransformers(Path)} and {@link #sourceRoot(Path)} if the {@link #sourceFiles(List)} is empty or null.
+         * <p>
+         * If {@link #sourceFiles(List)} is called on this builder with a non-empty list, this option is meaningless.
+         *
+         * @param strict if true, restamp will fail if there are source files referenced in the ATs that don't exist.
+         * @return this builder.
+         */
+        @NotNull
+        @Contract(value = "_ -> this", mutates = "this")
+        public Builder sourceFilesFromAccessTransformers(final boolean strict) {
+            this.sourceFileMode = strict ? SourceFileMode.FROM_AT_STRICT : SourceFileMode.FROM_AT_GRACEFUL;
             return this;
         }
 
@@ -216,7 +232,7 @@ public record RestampContextConfiguration(
             final boolean sourceFilesEmpty = effectiveSourceFiles == null || effectiveSourceFiles.isEmpty();
 
             if (sourceFilesEmpty) {
-                if (!this.sourceFilesFromAT) throw new IllegalStateException("Cannot build without source files!");
+                if (this.sourceFileMode == SourceFileMode.MANUAL) throw new IllegalStateException("Cannot build without source files!");
 
                 effectiveSourceFiles = this.accessTransformSet.getClasses().keySet().stream() // Compute source files from parsed access transformers.
                     .map(s -> s.replace('.', '/'))
@@ -227,6 +243,10 @@ public record RestampContextConfiguration(
                     .distinct()
                     .map(sourceRoot::resolve)
                     .toList();
+
+                if (this.sourceFileMode == SourceFileMode.FROM_AT_GRACEFUL) {
+                    effectiveSourceFiles = effectiveSourceFiles.stream().filter(Files::exists).toList();
+                }
             }
 
             // Ensure all source files exist
@@ -243,6 +263,12 @@ public record RestampContextConfiguration(
                 classpath,
                 failWithNotApplicableAccessTransformers
             );
+        }
+
+        enum SourceFileMode {
+            FROM_AT_GRACEFUL,
+            FROM_AT_STRICT,
+            MANUAL
         }
 
     }
