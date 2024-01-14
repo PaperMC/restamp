@@ -59,7 +59,7 @@ public record RestampContextConfiguration(
         private @Nullable AccessTransformSet accessTransformSet;
         private @Nullable Path sourceRoot;
         private @Nullable List<Path> sourceFiles;
-        private SourceFileMode sourceFileMode = SourceFileMode.MANUAL;
+        private @NotNull SourceFileMode sourceFileMode = SourceFileMode.MANUAL;
         private boolean failWithNotApplicableAccessTransformers = false;
 
         private @NotNull List<Path> classpath = Collections.emptyList();
@@ -180,8 +180,8 @@ public record RestampContextConfiguration(
          * @return this builder.
          */
         @NotNull
-        @Contract(value = "-> this", mutates = "this")
-        public Builder sourceFilesFromAccessTransformers(boolean strict) {
+        @Contract(value = "_ -> this", mutates = "this")
+        public Builder sourceFilesFromAccessTransformers(final boolean strict) {
             this.sourceFileMode = strict ? SourceFileMode.FROM_AT_STRICT : SourceFileMode.FROM_AT_GRACEFUL;
             return this;
         }
