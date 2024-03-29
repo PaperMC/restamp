@@ -13,10 +13,21 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-      - name: Deploy release
-        run: ./gradlew publish --no-daemon --stacktrace
+      - uses: gradle/wrapper-validation-action@v2
+      - uses: gradle/gradle-build-action@v2
+        name: Deploy release
+        with:
+          arguments: build publish --no-daemon --stacktrace
         env:
           ORG_GRADLE_PROJECT_paperUsername: ${{ secrets.DEPLOY_USER }}
           ORG_GRADLE_PROJECT_paperPassword: ${{ secrets.DEPLOY_PASS }}
+      - name: Parse tag
+        id: vars
+        run: echo tag=${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
+      - name: Create release and changelog
+        uses: MC-Machinations/auto-release-changelog@v1.1.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: restamp ${{ steps.vars.outputs.tag }}
+          files: |
+            build/libs/*.jar
