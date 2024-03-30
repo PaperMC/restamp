@@ -13,10 +13,34 @@ developers to access fields, methods and classes in the project that were previo
 > This includes a jar of the project itself if only a subset of its classes are read/parsed by restamp (which is almost always the case).
 
 ### As a library
+#### Gradle (Kotlin DSL)
+```kotlin
+repositories {
+    maven("https://repo.papermc.io/repository/maven-public/")
+}
 
-Restamp is currently not deployed to a public facing maven repository. To use restamp as a dependency in jvm-based project,
-you need to install it into your local maven repository using the command `./gradlew publishToMavenLocal`.
-Its artefact is published under `io.papermc.restamp:restamp:1.0.0-SNAPSHOT` at this point in time.
+dependencies {
+    compileOnly("io.papermc.restamp:restamp:1.1.0")
+}
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
+```
+#### Maven
+```xml
+<repository>
+    <id>papermc</id>
+    <url>https://repo.papermc.io/repository/maven-public/</url>
+</repository>
+```
+```xml
+<dependency>
+    <groupId>io.papermc.restamp</groupId>
+    <artifactId>restamp</artifactId>
+    <version>1.1.0</version>
+</dependency>
+```
 
 You may use restamp by first constructing a `RestampContextConfiguration` via its builder:
 
@@ -36,7 +60,7 @@ for further usage by your jvm-based project.
 
 ### As a CLI
 
-As of right now, restamp's cli is not published anywhere. To build the cli, run `./gradlew build` which produces the cli in
+You can download the cli from the GitHub Releases page or you can build it with `./gradlew build` which produces the cli in
 `restamp-cli/build/libs/restamp-cli-*-final.jar`.
 
 More information on the CLI's expected parameters can be found via the `--help` flag.
