@@ -95,6 +95,23 @@ public class RestampFunctionTestHelper {
     }
 
     /**
+     * Replaces all none changes in the base access transformer with the respective values found in the replaceFrom transform.
+     *
+     * @param base        the base access transform instance which should be returned but with its NONE values replaced.
+     * @param replaceFrom the access transform instance to source the replacement values from.
+     *
+     * @return the replaced/filled in access transform.
+     */
+    @NotNull
+    public static AccessTransform replaceNoneFrom(@NotNull final AccessTransform base,
+                                                  @NotNull final AccessTransform replaceFrom) {
+        return AccessTransform.of(
+            base.getAccess() == AccessChange.NONE ? replaceFrom.getAccess() : base.getAccess(),
+            base.getFinal() == ModifierChange.NONE ? replaceFrom.getFinal() : base.getFinal()
+        );
+    }
+
+    /**
      * An argument provider that provides all combinations of known visibility modifiers (private, public, protected and nothing (package private)).
      */
     public static final class CartesianVisibilityArgumentProvider implements ArgumentsProvider {
@@ -105,19 +122,30 @@ public class RestampFunctionTestHelper {
          */
         private static final List<AccessTransform> MODIFIERS = List.of(
             AccessTransform.of(AccessChange.PRIVATE, ModifierChange.ADD),
+            AccessTransform.of(AccessChange.PRIVATE, ModifierChange.NONE),
             AccessTransform.of(AccessChange.PRIVATE, ModifierChange.REMOVE),
             AccessTransform.of(AccessChange.PUBLIC, ModifierChange.ADD),
+            AccessTransform.of(AccessChange.PUBLIC, ModifierChange.NONE),
             AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE),
+            AccessTransform.of(AccessChange.PROTECTED, ModifierChange.ADD),
+            AccessTransform.of(AccessChange.PROTECTED, ModifierChange.NONE),
+            AccessTransform.of(AccessChange.PROTECTED, ModifierChange.REMOVE),
             AccessTransform.of(AccessChange.PACKAGE_PRIVATE, ModifierChange.ADD),
-            AccessTransform.of(AccessChange.PACKAGE_PRIVATE, ModifierChange.REMOVE)
+            AccessTransform.of(AccessChange.PACKAGE_PRIVATE, ModifierChange.NONE),
+            AccessTransform.of(AccessChange.PACKAGE_PRIVATE, ModifierChange.REMOVE),
+            AccessTransform.of(AccessChange.NONE, ModifierChange.ADD),
+            AccessTransform.of(AccessChange.NONE, ModifierChange.NONE),
+            AccessTransform.of(AccessChange.NONE, ModifierChange.REMOVE)
         );
 
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
-            return MODIFIERS.stream().flatMap(given ->
+            return MODIFIERS.stream()
+                .filter(a -> a.getAccess() != AccessChange.NONE && a.getFinal() != ModifierChange.NONE) // Do not start with a given none value.
+                .flatMap(given ->
                 MODIFIERS.stream().flatMap(target ->
                     Stream.of("static", null).map(staticModifier -> Arguments.of(
-                        given, target, staticModifier
+                        given, replaceNoneFrom(target, given), target, staticModifier
                     ))
                 )
             );

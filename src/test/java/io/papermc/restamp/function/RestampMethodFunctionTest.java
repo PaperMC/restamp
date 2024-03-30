@@ -27,10 +27,11 @@ public class RestampMethodFunctionTest {
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)
     public void testAccessTransformerOnMethod(@NotNull final AccessTransform given,
                                               @NotNull final AccessTransform target,
+                                              @NotNull final AccessTransform instruction,
                                               @Nullable final String staticModifier) {
         final AccessTransformSet accessTransformSet = AccessTransformSet.create();
         accessTransformSet.getOrCreateClass("io.papermc.test.Test").replaceMethod(
-            MethodSignature.of("test", "(Ljava.lang.Object;)Ljava.lang.String;"), target
+            MethodSignature.of("test", "(Ljava.lang.Object;)Ljava.lang.String;"), instruction
         );
 
         final RestampInput input = RestampFunctionTestHelper.inputFromSourceString(accessTransformSet, constructMethodTest(

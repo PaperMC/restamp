@@ -78,11 +78,9 @@ public class ModifierTransformer {
                 continue;
             }
 
-            // Do not touch access modifiers if no change was requested.
-            if (accessTransform.getAccess() == AccessChange.NONE) continue;
-
             // Drop unwanted visibility modifiers and record potential position for new modifier.
-            if (modifier.getType() != accessTypeToKeep) {
+            // Do not touch access modifiers if no change was requested.
+            if (accessTransform.getAccess() != AccessChange.NONE && modifier.getType() != accessTypeToKeep) {
                 transformationProgress.dropModifier(modifier);
                 transformationProgress.proposeValidVisibilitySpot();
                 continue;

@@ -69,11 +69,12 @@ class ModifierTransformerTest {
 
     @ParameterizedTest
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)
-    public void testModifyVisibilityTransformation(@NotNull final AccessTransform current,
-                                                   @NotNull final AccessTransform wanted,
+    public void testModifyVisibilityTransformation(@NotNull final AccessTransform currentState,
+                                                   @NotNull final AccessTransform targetState,
+                                                   @NotNull final AccessTransform instruction,
                                                    @Nullable final String staticModifierExisting) {
         final List<J.Modifier> modifiers = new ArrayList<>();
-        final J.Modifier.Type type = switch (current.getAccess()) {
+        final J.Modifier.Type type = switch (currentState.getAccess()) {
             case PRIVATE -> J.Modifier.Type.Private;
             case PROTECTED -> J.Modifier.Type.Protected;
             case PUBLIC -> J.Modifier.Type.Public;
@@ -83,23 +84,23 @@ class ModifierTransformerTest {
             modifiers.add(modifierFrom(Space.EMPTY, type));
         }
         if (staticModifierExisting != null) modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Static));
-        if (current.getFinal() == ModifierChange.ADD) modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Final));
+        if (currentState.getFinal() == ModifierChange.ADD) modifiers.add(modifierFrom(Space.SINGLE_SPACE, J.Modifier.Type.Final));
 
-        final ModifierTransformationResult result = transformer.transformModifiers(wanted, modifiers, Space.SINGLE_SPACE);
+        final ModifierTransformationResult result = transformer.transformModifiers(instruction, modifiers, Space.SINGLE_SPACE);
 
         final List<J.Modifier> newModifiers = result.newModifiers();
 
         int expectedModifierSize = 0;
-        if (wanted.getAccess() != AccessChange.PACKAGE_PRIVATE) expectedModifierSize++;
-        if (wanted.getFinal() == ModifierChange.ADD) expectedModifierSize++;
+        if (targetState.getAccess() != AccessChange.PACKAGE_PRIVATE) expectedModifierSize++;
+        if (targetState.getFinal() == ModifierChange.ADD) expectedModifierSize++;
         if (staticModifierExisting != null) expectedModifierSize++;
 
         Assertions.assertEquals(expectedModifierSize, newModifiers.size());
-        if (wanted.getAccess() != AccessChange.PACKAGE_PRIVATE) {
-            Assertions.assertEquals(RecipeHelper.typeFromAccessChange(wanted.getAccess()), newModifiers.remove(0).getType());
+        if (targetState.getAccess() != AccessChange.PACKAGE_PRIVATE) {
+            Assertions.assertEquals(RecipeHelper.typeFromAccessChange(targetState.getAccess()), newModifiers.remove(0).getType());
         }
         if (staticModifierExisting != null) Assertions.assertEquals(J.Modifier.Type.Static, newModifiers.remove(0).getType());
-        if (wanted.getFinal() == ModifierChange.ADD) Assertions.assertEquals(J.Modifier.Type.Final, newModifiers.remove(0).getType());
+        if (targetState.getFinal() == ModifierChange.ADD) Assertions.assertEquals(J.Modifier.Type.Final, newModifiers.remove(0).getType());
     }
 
     @Test

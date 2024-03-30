@@ -26,9 +26,10 @@ public class RestampClassFunctionTest {
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)
     public void testAccessTransformerOnClass(@NotNull final AccessTransform given,
                                              @NotNull final AccessTransform target,
+                                             @NotNull final AccessTransform instruction,
                                              @Nullable final String staticModifier) {
         final AccessTransformSet accessTransformSet = AccessTransformSet.create();
-        accessTransformSet.getOrCreateClass("io.papermc.test.Test").replace(target);
+        accessTransformSet.getOrCreateClass("io.papermc.test.Test").replace(instruction);
 
         final RestampInput input = RestampFunctionTestHelper.inputFromSourceString(accessTransformSet, constructClassTest(
             accessChangeToModifierString(given.getAccess(), staticModifier, given.getFinal() == ModifierChange.ADD ? "final" : null)
