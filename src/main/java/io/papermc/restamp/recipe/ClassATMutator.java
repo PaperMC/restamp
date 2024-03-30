@@ -53,13 +53,15 @@ public class ClassATMutator extends Recipe {
                 final AccessTransform accessTransform = transformerClass.get();
                 if (accessTransform.isEmpty()) return classDeclaration;
 
-                transformerClass.replace(AccessTransform.EMPTY); // Mark as consumed
-
                 final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
                     accessTransform,
                     classDeclaration.getModifiers(),
                     classDeclaration.getAnnotations().getKind().getPrefix()
                 );
+                if (transformationResult.newModifiers().equals(classDeclaration.getModifiers())) {
+                    return classDeclaration;
+                }
+                transformerClass.replace(AccessTransform.EMPTY); // Mark as consumed
 
                 return classDeclaration
                     .withModifiers(transformationResult.newModifiers())

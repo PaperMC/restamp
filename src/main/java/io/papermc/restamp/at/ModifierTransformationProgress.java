@@ -182,7 +182,7 @@ public class ModifierTransformationProgress {
      */
     @NotNull
     public Result finaliseProgress(
-        @NotNull final Supplier<J.Modifier> visibilityModifierCreator,
+        @Nullable final Supplier<J.Modifier> visibilityModifierCreator,
         @NotNull Space parentSpace
     ) {
         // If we neither found the visibility nor found ones to remove, pretend we found a valid spot at index 0.
@@ -206,7 +206,7 @@ public class ModifierTransformationProgress {
         }
 
         // Insert if the spot is still useful, the visibility was not found.
-        if (this.validVisibilitySpot.useful) {
+        if (this.validVisibilitySpot.useful && visibilityModifierCreator != null) {
             this.modifiers.add(this.validVisibilitySpot.index, visibilityModifierCreator.get());
             this.mutatedFromOriginal = true;
         }

@@ -79,7 +79,8 @@ public class ModifierTransformer {
             }
 
             // Drop unwanted visibility modifiers and record potential position for new modifier.
-            if (modifier.getType() != accessTypeToKeep) {
+            // Do not touch access modifiers if no change was requested.
+            if (accessTransform.getAccess() != AccessChange.NONE && modifier.getType() != accessTypeToKeep) {
                 transformationProgress.dropModifier(modifier);
                 transformationProgress.proposeValidVisibilitySpot();
                 continue;
@@ -90,8 +91,9 @@ public class ModifierTransformer {
         }
 
         // Finalise the progress tracker
+        // Only pass a modifier creator if we are requesting access change in the first place
         final ModifierTransformationProgress.Result result = transformationProgress.finaliseProgress(
-            () -> new J.Modifier(
+            accessTransform.getAccess() == AccessChange.NONE ? null : () -> new J.Modifier(
                 Tree.randomId(), Space.EMPTY, Markers.EMPTY, null,
                 Objects.requireNonNull(accessTypeToKeep, "package private caused insertion"), Collections.emptyList()
             ),
