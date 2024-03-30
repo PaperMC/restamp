@@ -60,7 +60,7 @@ public class FieldATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 final AccessTransform accessTransformToApply = variableDeclarations.getVariables().stream()
-                    .map(n -> transformerClass.replaceField(n.getSimpleName(), AccessTransform.EMPTY))
+                    .map(n -> transformerClass.getField(n.getSimpleName()))
                     .filter(Objects::nonNull)
                     .reduce(AccessTransform::merge)
                     .orElse(AccessTransform.EMPTY);
@@ -72,6 +72,12 @@ public class FieldATMutator extends Recipe {
                     variableDeclarations.getModifiers(),
                     Optional.ofNullable(variableDeclarations.getTypeExpression()).map(J::getPrefix).orElse(Space.EMPTY)
                 );
+
+                if (transformationResult.newModifiers().equals(variableDeclarations.getModifiers())) {
+                    return variableDeclarations;
+                }
+                variableDeclarations.getVariables().forEach(n -> transformerClass.replaceField(n.getSimpleName(), AccessTransform.EMPTY)); // Mark as consumed
+
                 final J.VariableDeclarations updated = variableDeclarations
                     .withModifiers(transformationResult.newModifiers())
                     .withTypeExpression(variableDeclarations.getTypeExpression().withPrefix(transformationResult.parentSpace()));

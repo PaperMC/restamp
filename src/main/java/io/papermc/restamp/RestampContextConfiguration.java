@@ -120,7 +120,7 @@ public record RestampContextConfiguration(
          * @return this builder.
          */
         @NotNull
-        @Contract(value = "_,_ -> this", mutates = "this")
+        @Contract(value = "_ -> this", mutates = "this")
         public Builder accessTransformSet(@NotNull final AccessTransformSet accessTransformSet) {
             this.accessTransformSet = AccessTransformSet.create();
             this.accessTransformSet.merge(accessTransformSet);

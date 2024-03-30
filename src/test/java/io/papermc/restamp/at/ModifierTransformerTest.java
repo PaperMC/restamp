@@ -10,7 +10,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 import org.openrewrite.java.tree.TextComment;
@@ -18,12 +20,52 @@ import org.openrewrite.marker.Markers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static io.papermc.restamp.RestampFunctionTestHelper.modifierFrom;
 
 class ModifierTransformerTest {
 
     private final ModifierTransformer transformer = new ModifierTransformer();
+
+    static Stream<Arguments> testSkipModifyTransformation() {
+        return Stream.of(
+            Arguments.of(
+                AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE),
+                List.of(modifierFrom(Space.EMPTY, J.Modifier.Type.Public)),
+                false
+            ),
+            Arguments.of(
+                AccessTransform.of(AccessChange.PACKAGE_PRIVATE, ModifierChange.ADD),
+                List.of(modifierFrom(Space.EMPTY, J.Modifier.Type.Final)),
+                false
+            ),
+            Arguments.of(
+                AccessTransform.of(AccessChange.PUBLIC),
+                List.of(modifierFrom(Space.EMPTY, J.Modifier.Type.Private)),
+                true
+            ),
+            Arguments.of(
+                AccessTransform.of(AccessChange.PUBLIC),
+                List.of(modifierFrom(Space.EMPTY, J.Modifier.Type.Private), modifierFrom(Space.EMPTY, J.Modifier.Type.Final)),
+                true
+            ),
+            Arguments.of(
+                AccessTransform.of(ModifierChange.REMOVE),
+                List.of(modifierFrom(Space.EMPTY, J.Modifier.Type.Public), modifierFrom(Space.EMPTY, J.Modifier.Type.Final)),
+                true
+            )
+        );
+    }
+
+    @MethodSource()
+    @ParameterizedTest
+    public void testSkipModifyTransformation(@NotNull final AccessTransform transform,
+                                             @NotNull final List<J.Modifier> modifiers,
+                                             final boolean expected) {
+        final ModifierTransformationResult result = this.transformer.transformModifiers(transform, modifiers, Space.EMPTY);
+        Assertions.assertEquals(expected, !result.newModifiers().equals(modifiers));
+    }
 
     @ParameterizedTest
     @ArgumentsSource(RestampFunctionTestHelper.CartesianVisibilityArgumentProvider.class)

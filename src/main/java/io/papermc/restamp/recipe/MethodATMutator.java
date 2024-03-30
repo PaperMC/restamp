@@ -100,9 +100,9 @@ public class MethodATMutator extends Recipe {
                     returnType = VoidType.INSTANCE;
                 }
 
-                final AccessTransform accessTransform = transformerClass.replaceMethod(new MethodSignature(
+                final AccessTransform accessTransform = transformerClass.getMethod(new MethodSignature(
                     atMethodName, new MethodDescriptor(parameterTypes, returnType)
-                ), AccessTransform.EMPTY);
+                ));
                 if (accessTransform == null || accessTransform.isEmpty()) return methodDeclaration;
 
                 final TypeTree returnTypeExpression = methodDeclaration.getReturnTypeExpression();
@@ -111,6 +111,13 @@ public class MethodATMutator extends Recipe {
                     methodDeclaration.getModifiers(),
                     Optional.ofNullable(returnTypeExpression).map(J::getPrefix).orElse(methodDeclaration.getName().getPrefix())
                 );
+
+                if (transformationResult.newModifiers().equals(methodDeclaration.getModifiers())) {
+                    return methodDeclaration;
+                }
+                transformerClass.replaceMethod(new MethodSignature(
+                    atMethodName, new MethodDescriptor(parameterTypes, returnType)
+                ), AccessTransform.EMPTY); // Mark as consumed
 
                 J.MethodDeclaration updated = methodDeclaration.withModifiers(transformationResult.newModifiers());
                 if (returnTypeExpression != null) {
