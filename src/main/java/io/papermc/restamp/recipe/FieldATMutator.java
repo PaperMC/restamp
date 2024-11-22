@@ -5,7 +5,7 @@ import io.papermc.restamp.at.ModifierTransformer;
 import io.papermc.restamp.utils.RecipeHelper;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -19,6 +19,7 @@ import java.util.Optional;
 /**
  * The {@link FieldATMutator} recipe is responsible for applying access transformers to field definitions across the source files provided.
  */
+@NullMarked
 public class FieldATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;
@@ -40,12 +41,11 @@ public class FieldATMutator extends Recipe {
     }
 
     @Override
-    public @NotNull TreeVisitor<?, ExecutionContext> getVisitor() {
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
         return new JavaIsoVisitor<>() {
             @Override
-            @NotNull
-            public J.VariableDeclarations visitVariableDeclarations(@NotNull final J.VariableDeclarations multiVariable,
-                                                                    @NotNull final ExecutionContext executionContext) {
+            public J.VariableDeclarations visitVariableDeclarations(final J.VariableDeclarations multiVariable,
+                                                                    final ExecutionContext executionContext) {
                 final J.VariableDeclarations variableDeclarations = super.visitVariableDeclarations(multiVariable, executionContext);
 
                 final J.ClassDeclaration parentClassDeclaration = RecipeHelper.retrieveFieldClass(getCursor());

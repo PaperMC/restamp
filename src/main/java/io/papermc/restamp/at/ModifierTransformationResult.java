@@ -1,6 +1,6 @@
 package io.papermc.restamp.at;
 
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 
@@ -15,9 +15,10 @@ import java.util.List;
  * @param newModifiers the new modifier list for the target.
  * @param parentSpace  the space of the parent.
  */
+@NullMarked
 public record ModifierTransformationResult(
-    @NotNull List<J.Modifier> newModifiers,
-    @NotNull Space parentSpace
+    List<J.Modifier> newModifiers,
+    Space parentSpace
 ) {
 
 }

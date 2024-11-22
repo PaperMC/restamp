@@ -1,14 +1,15 @@
 package io.papermc.restamp.utils;
 
 import org.cadixdev.at.AccessChange;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.java.tree.J;
 
 /**
  * The recipe helper type is a pure utility class that holds static helper methods for working with {@link org.openrewrite.Recipe} types.
  */
+@NullMarked
 public class RecipeHelper {
 
     /**
@@ -21,8 +22,7 @@ public class RecipeHelper {
      *
      * @return the class declaration or null if no matching one was found.
      */
-    @Nullable
-    public static J.ClassDeclaration retrieveFieldClass(final Cursor cursor) {
+    public static J.@Nullable ClassDeclaration retrieveFieldClass(final Cursor cursor) {
         final Object foundParent = cursor.dropParentUntil(parent ->
             parent instanceof J.ClassDeclaration || parent instanceof J.MethodDeclaration || parent instanceof J.Lambda
         ).getValue();
@@ -38,8 +38,7 @@ public class RecipeHelper {
      *
      * @return the modifier type.
      */
-    @Nullable
-    public static J.Modifier.Type typeFromAccessChange(@NotNull final AccessChange accessChange) {
+    public static J.Modifier.@Nullable Type typeFromAccessChange(final AccessChange accessChange) {
         return switch (accessChange) {
             case PRIVATE -> J.Modifier.Type.Private;
             case PUBLIC -> J.Modifier.Type.Public;

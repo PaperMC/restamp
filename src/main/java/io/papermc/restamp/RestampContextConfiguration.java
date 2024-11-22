@@ -4,8 +4,8 @@ import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.at.io.AccessTransformFormat;
 import org.cadixdev.at.io.AccessTransformFormats;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 
 import java.io.IOException;
@@ -30,12 +30,13 @@ import java.util.List;
  * @param failWithNotApplicableAccessTransformers whether restamp should fail if not all access transformers defined in {@code accessTransformers}
  *                                                were consumed by restamp.
  */
+@NullMarked
 public record RestampContextConfiguration(
-    @NotNull ExecutionContext executionContext,
-    @NotNull AccessTransformSet accessTransformSet,
-    @NotNull Path sourceRoot,
-    @NotNull List<Path> sourceFiles,
-    @NotNull List<Path> classpath,
+    ExecutionContext executionContext,
+    AccessTransformSet accessTransformSet,
+    Path sourceRoot,
+    List<Path> sourceFiles,
+    List<Path> classpath,
     boolean failWithNotApplicableAccessTransformers
 ) {
 
@@ -44,7 +45,7 @@ public record RestampContextConfiguration(
      *
      * @return the build instance.
      */
-    @NotNull
+
     @Contract(value = "-> new", pure = true)
     public static Builder builder() {
         return new Builder();
@@ -59,10 +60,10 @@ public record RestampContextConfiguration(
         private @Nullable AccessTransformSet accessTransformSet;
         private @Nullable Path sourceRoot;
         private @Nullable List<Path> sourceFiles;
-        private @NotNull SourceFileMode sourceFileMode = SourceFileMode.MANUAL;
+        private SourceFileMode sourceFileMode = SourceFileMode.MANUAL;
         private boolean failWithNotApplicableAccessTransformers = false;
 
-        private @NotNull List<Path> classpath = Collections.emptyList();
+        private List<Path> classpath = Collections.emptyList();
 
         /**
          * Sets the execution context used by restamp for both parsing and running.
@@ -71,9 +72,9 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
+
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder executionContext(@NotNull final ExecutionContext executionContext) {
+        public Builder executionContext(final ExecutionContext executionContext) {
             this.executionContext = executionContext;
             return this;
         }
@@ -84,13 +85,12 @@ public record RestampContextConfiguration(
          *
          * @param accessTransformerPath the path to the access transformers.
          *
-         * @throws IOException when something goes wrong loading the accessTransformSet
-         *
          * @return this builder.
+         *
+         * @throws IOException when something goes wrong loading the accessTransformSet
          */
-        @NotNull
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder accessTransformers(@NotNull final Path accessTransformerPath) throws IOException {
+        public Builder accessTransformers(final Path accessTransformerPath) throws IOException {
             return this.accessTransformers(accessTransformerPath, AccessTransformFormats.FML);
         }
 
@@ -100,28 +100,25 @@ public record RestampContextConfiguration(
          * @param accessTransformerPath   the path to the access transformers.
          * @param accessTransformerFormat the format of the access transformers defined in the file at the provided path.
          *
-         * @throws IOException when something goes wrong loading the accessTransformSet
-         *
          * @return this builder.
+         *
+         * @throws IOException when something goes wrong loading the accessTransformSet
          */
-        @NotNull
         @Contract(value = "_,_ -> this", mutates = "this")
-        public Builder accessTransformers(@NotNull final Path accessTransformerPath, @NotNull final AccessTransformFormat accessTransformerFormat) throws IOException {
+        public Builder accessTransformers(final Path accessTransformerPath, final AccessTransformFormat accessTransformerFormat) throws IOException {
             this.accessTransformSet = accessTransformerFormat.read(accessTransformerPath);
             return this;
         }
 
         /**
-         * Sets the path pointing to the file holding the access transformers.
+         * Sets the access transformer set to be used by restamp.
          *
-         * @param accessTransformerPath   the path to the access transformers.
-         * @param accessTransformerFormat the format of the access transformers defined in the file at the provided path.
+         * @param accessTransformSet the transformer set.
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "_,_ -> this", mutates = "this")
-        public Builder accessTransformSet(@NotNull final AccessTransformSet accessTransformSet) {
+        public Builder accessTransformSet(final AccessTransformSet accessTransformSet) {
             this.accessTransformSet = AccessTransformSet.create();
             this.accessTransformSet.merge(accessTransformSet);
             return this;
@@ -134,9 +131,8 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder sourceRoot(@NotNull final Path sourceRoot) {
+        public Builder sourceRoot(final Path sourceRoot) {
             this.sourceRoot = sourceRoot;
             return this;
         }
@@ -148,9 +144,8 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder sourceFiles(@NotNull final List<Path> sourceFiles) {
+        public Builder sourceFiles(final List<Path> sourceFiles) {
             this.sourceFiles = sourceFiles;
             return this;
         }
@@ -163,7 +158,6 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "-> this", mutates = "this")
         public Builder sourceFilesFromAccessTransformers() {
             this.sourceFileMode = SourceFileMode.FROM_AT_STRICT;
@@ -177,9 +171,9 @@ public record RestampContextConfiguration(
          * If {@link #sourceFiles(List)} is called on this builder with a non-empty list, this option is meaningless.
          *
          * @param strict if true, restamp will fail if there are source files referenced in the ATs that don't exist.
+         *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "_ -> this", mutates = "this")
         public Builder sourceFilesFromAccessTransformers(final boolean strict) {
             this.sourceFileMode = strict ? SourceFileMode.FROM_AT_STRICT : SourceFileMode.FROM_AT_GRACEFUL;
@@ -193,9 +187,8 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "_ -> this", mutates = "this")
-        public Builder classpath(@NotNull final List<Path> classpath) {
+        public Builder classpath(final List<Path> classpath) {
             this.classpath = classpath;
             return this;
         }
@@ -206,7 +199,6 @@ public record RestampContextConfiguration(
          *
          * @return this builder.
          */
-        @NotNull
         @Contract(value = "-> this", mutates = "this")
         public Builder failWithNotApplicableAccessTransformers() {
             this.failWithNotApplicableAccessTransformers = true;
@@ -222,7 +214,6 @@ public record RestampContextConfiguration(
          * @throws IOException           if parsing the access transformer set failed due to an {@link IOException}.
          */
         @Contract(value = "-> new", pure = true)
-        @NotNull
         public RestampContextConfiguration build() throws IllegalStateException {
             if (this.executionContext == null) throw new IllegalStateException("Cannot build without an execution context");
             if (this.accessTransformSet == null) throw new IllegalStateException("Cannot build without access transformers!");

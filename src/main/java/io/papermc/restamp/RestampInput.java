@@ -1,11 +1,10 @@
 package io.papermc.restamp;
 
 import org.cadixdev.at.AccessTransformSet;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.ExecutionContext;
-import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.SourceFile;
-import org.openrewrite.java.Java17Parser;
+import org.openrewrite.java.Java21Parser;
 
 import java.util.List;
 
@@ -18,10 +17,11 @@ import java.util.List;
  * @param failWithNotApplicableAccessTransformers whether restamp should fail if not all access transformers defined in {@code accessTransformers}
  *                                                were consumed by restamp.
  */
+@NullMarked
 public record RestampInput(
-    @NotNull ExecutionContext executionContext,
-    @NotNull List<SourceFile> sources,
-    @NotNull AccessTransformSet accessTransformers,
+    ExecutionContext executionContext,
+    List<SourceFile> sources,
+    AccessTransformSet accessTransformers,
     boolean failWithNotApplicableAccessTransformers
 ) {
 
@@ -33,9 +33,8 @@ public record RestampInput(
      *
      * @return the parsed restamp input, ready for consumption via {@link Restamp#run(RestampInput)}.
      */
-    @NotNull
-    public static RestampInput parseFrom(@NotNull final RestampContextConfiguration contextConfiguration) {
-        final Java17Parser parser = Java17Parser.builder().classpath(contextConfiguration.classpath()).build();
+    public static RestampInput parseFrom(final RestampContextConfiguration contextConfiguration) {
+        final Java21Parser parser = Java21Parser.builder().classpath(contextConfiguration.classpath()).build();
 
         final List<SourceFile> sourceFiles = parser.parse(
             contextConfiguration.sourceFiles(),

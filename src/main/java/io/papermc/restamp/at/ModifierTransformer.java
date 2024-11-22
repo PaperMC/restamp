@@ -4,8 +4,8 @@ import io.papermc.restamp.utils.RecipeHelper;
 import org.cadixdev.at.AccessChange;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.ModifierChange;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.Tree;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
@@ -21,6 +21,7 @@ import java.util.Set;
 /**
  * The modifier transform is responsible for transforming a list of modifiers to match a passed {@link AccessTransform}.
  */
+@NullMarked
 public class ModifierTransformer {
 
     private static final Set<J.Modifier.Type> KNOWN_MUTABLE_TYPES = EnumSet.of(
@@ -44,15 +45,14 @@ public class ModifierTransformer {
      *
      * @return the result of the modification.
      */
-    @NotNull
-    public ModifierTransformationResult transformModifiers(@NotNull final AccessTransform accessTransform,
-                                                           @NotNull final List<J.Modifier> modifiers,
-                                                           @NotNull final Space parentSpace) {
+    public ModifierTransformationResult transformModifiers(final AccessTransform accessTransform,
+                                                           final List<J.Modifier> modifiers,
+                                                           final Space parentSpace) {
         final ModifierTransformationProgress transformationProgress = new ModifierTransformationProgress(new ArrayList<>(modifiers.size()));
         final AccessChange accessChange = accessTransform.getAccess();
 
         // Compute the access modifier type to keep
-        @Nullable final J.Modifier.Type accessTypeToKeep = RecipeHelper.typeFromAccessChange(accessChange);
+        final J.Modifier.@Nullable Type accessTypeToKeep = RecipeHelper.typeFromAccessChange(accessChange);
 
         // Package private is always found, it is simply *not a modifier*
         if (accessChange == AccessChange.PACKAGE_PRIVATE) {
