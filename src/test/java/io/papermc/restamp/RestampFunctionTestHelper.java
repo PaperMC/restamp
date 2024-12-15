@@ -19,6 +19,7 @@ import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 import org.openrewrite.marker.Markers;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
@@ -33,16 +34,16 @@ public class RestampFunctionTestHelper {
      * Constructs a new restamp input object from a single java class' source in a string.
      *
      * @param accessTransformSet the access transformers to apply.
-     * @param javaClassSource    the source code of a java class.
+     * @param javaClassesSource    the source code of a java class.
      *
      * @return the constructed restamp input.
      */
     public static RestampInput inputFromSourceString(final AccessTransformSet accessTransformSet,
-                                                     final String javaClassSource) {
+                                                     final String... javaClassesSource) {
         final Java21Parser javaParser = Java21Parser.builder().build();
         final InMemoryExecutionContext executionContext = new InMemoryExecutionContext(t -> Assertions.fail("Failed to parse inputs", t));
         final List<SourceFile> sourceFiles = javaParser.parseInputs(
-            List.of(Parser.Input.fromString(javaClassSource)),
+            Arrays.stream(javaClassesSource).map(Parser.Input::fromString).toList(),
             null,
             executionContext
         ).toList();
