@@ -1,11 +1,16 @@
 package io.papermc.restamp;
 
+import io.papermc.restamp.recipe.MethodATMutator;
 import org.cadixdev.at.AccessTransformSet;
 import org.jspecify.annotations.NullMarked;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.SourceFile;
 import org.openrewrite.java.Java21Parser;
+import org.openrewrite.tree.ParseError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -25,6 +30,8 @@ public record RestampInput(
     boolean failWithNotApplicableAccessTransformers
 ) {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RestampInput.class);
+
     /**
      * Parses a ready-to-use restamp input type from the passed context configuration.
      * This process is not cheap as the entire source set is parsed.
@@ -41,6 +48,9 @@ public record RestampInput(
             contextConfiguration.sourceRoot(),
             contextConfiguration.executionContext()
         ).toList();
+
+        final List<String> parseErrors = sourceFiles.stream().filter((s) -> s instanceof ParseError).map((s) -> s.getSourcePath().toString()).toList();
+        LOGGER.warn("Encountered parse errors ({}): {}", parseErrors.size(), parseErrors);
 
         return new RestampInput(
             contextConfiguration.executionContext(),
