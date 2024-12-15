@@ -12,12 +12,14 @@ import org.cadixdev.bombe.type.Type;
 import org.cadixdev.bombe.type.VoidType;
 import org.cadixdev.bombe.type.signature.MethodSignature;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.JavaType.FullyQualified;
 import org.openrewrite.java.tree.TypeTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,7 @@ public class MethodATMutator extends Recipe {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodATMutator.class);
 
     private final AccessTransformSet atDictionary;
+    private final AccessTransformSet inheritanceAccessTransformAtDirectory;
     private final ModifierTransformer modifierTransformer;
     private final AccessTransformerTypeConverter atTypeConverter;
 
@@ -43,6 +46,12 @@ public class MethodATMutator extends Recipe {
         this.atDictionary = atDictionary;
         this.modifierTransformer = modifierTransformer;
         this.atTypeConverter = atTypeConverter;
+
+        // Create a copy of the atDirectory for inherited at lookups.
+        // Needed as the parent type may be processed first, removing its access transformer for tracking purposes.
+        // Child types hence lookup using this.
+        this.inheritanceAccessTransformAtDirectory = AccessTransformSet.create();
+        this.inheritanceAccessTransformAtDirectory.merge(this.atDictionary);
     }
 
     @Override
@@ -67,12 +76,6 @@ public class MethodATMutator extends Recipe {
                 if (parentClassDeclaration == null || parentClassDeclaration.getType() == null)
                     return methodDeclaration;
 
-                // Find access transformers for class
-                final AccessTransformSet.Class transformerClass = atDictionary.getClass(
-                    parentClassDeclaration.getType().getFullyQualifiedName()
-                ).orElse(null);
-                if (transformerClass == null) return methodDeclaration;
-
                 final String methodIdentifier = parentClassDeclaration.getType().getFullyQualifiedName() + "#" + methodDeclaration.getName();
 
                 if (methodDeclaration.getMethodType() == null) {
@@ -80,7 +83,7 @@ public class MethodATMutator extends Recipe {
                     return methodDeclaration;
                 }
 
-                // Fetch access transformer to apply to specific field.
+                // Fetch access transformer to apply to specific method.
                 String atMethodName = methodDeclaration.getMethodType().getName();
                 Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType(),
                     () -> "Parsing return type " + methodDeclaration.getReturnTypeExpression().toString() + " of method " + methodIdentifier);
@@ -101,10 +104,14 @@ public class MethodATMutator extends Recipe {
                     returnType = VoidType.INSTANCE;
                 }
 
-                final AccessTransform accessTransform = transformerClass.replaceMethod(new MethodSignature(
-                    atMethodName, new MethodDescriptor(parameterTypes, returnType)
-                ), AccessTransform.EMPTY);
-                if (accessTransform == null || accessTransform.isEmpty()) return methodDeclaration;
+                // Find access transformers for method
+                final AccessTransform accessTransform = findApplicableAccessTransformer(
+                    parentClassDeclaration.getType(),
+                    atMethodName,
+                    returnType,
+                    parameterTypes
+                );
+                if (accessTransform == null) return methodDeclaration;
 
                 final TypeTree returnTypeExpression = methodDeclaration.getReturnTypeExpression();
                 final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
@@ -123,6 +130,50 @@ public class MethodATMutator extends Recipe {
                 return updated;
             }
         };
+    }
+
+    /**
+     * Finds the applicable access transformer for a method and *optionally* removes it from the atDirectory.
+     *
+     * @param owningType     the owning type of the method, e.g. the type it is defined in.
+     * @param atMethodName   the method name.
+     * @param returnType     the return type.
+     * @param parameterTypes the method parameters.
+     *
+     * @return the access transformer or null.
+     */
+    @Nullable
+    private AccessTransform findApplicableAccessTransformer(
+        final FullyQualified owningType,
+        final String atMethodName,
+        final Type returnType,
+        final List<FieldType> parameterTypes
+    ) {
+        final MethodSignature methodSignature = new MethodSignature(
+            atMethodName,
+            new MethodDescriptor(parameterTypes, returnType)
+        );
+
+        for (FullyQualified currentCheckedType = owningType; currentCheckedType != null; currentCheckedType = currentCheckedType.getSupertype()) {
+            // The class at data from the copy of the at dir.
+            // Removal of these happens later but we need the original state to ensure overrides are updated.
+            final AccessTransformSet.Class transformerClass = inheritanceAccessTransformAtDirectory
+                .getClass(currentCheckedType.getFullyQualifiedName())
+                .orElse(null);
+            if (transformerClass == null) continue;
+
+            // Only get the method here.
+            final AccessTransform accessTransform = transformerClass.getMethod(methodSignature);
+            if (accessTransform == null || accessTransform.isEmpty()) continue;
+
+            // If we *did* find an AT here and this *is* the direct owning type, remove it from the original atDirectory.
+            if (currentCheckedType == owningType) {
+                atDictionary.getClass(transformerClass.getName()).ifPresent(c -> c.replaceMethod(methodSignature, AccessTransform.EMPTY));
+            }
+            return accessTransform;
+        }
+
+        return null; // We did not find anything applicable.
     }
 
 }
