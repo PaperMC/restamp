@@ -11,7 +11,7 @@ import org.cadixdev.bombe.type.MethodDescriptor;
 import org.cadixdev.bombe.type.Type;
 import org.cadixdev.bombe.type.VoidType;
 import org.cadixdev.bombe.type.signature.MethodSignature;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -28,6 +28,7 @@ import java.util.Optional;
 /**
  * The {@link MethodATMutator} recipe is responsible for applying access transformers to method definitions across the source files provided.
  */
+@NullMarked
 public class MethodATMutator extends Recipe {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodATMutator.class);
@@ -55,12 +56,11 @@ public class MethodATMutator extends Recipe {
     }
 
     @Override
-    public @NotNull TreeVisitor<?, ExecutionContext> getVisitor() {
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
         return new JavaIsoVisitor<>() {
-            @NotNull
             @Override
-            public J.MethodDeclaration visitMethodDeclaration(@NotNull final J.MethodDeclaration unresolvedMethodDecl,
-                                                              @NotNull final ExecutionContext executionContext) {
+            public J.MethodDeclaration visitMethodDeclaration(final J.MethodDeclaration unresolvedMethodDecl,
+                                                              final ExecutionContext executionContext) {
                 final J.MethodDeclaration methodDeclaration = super.visitMethodDeclaration(unresolvedMethodDecl, executionContext);
 
                 final J.ClassDeclaration parentClassDeclaration = RecipeHelper.retrieveFieldClass(getCursor());
@@ -82,7 +82,8 @@ public class MethodATMutator extends Recipe {
 
                 // Fetch access transformer to apply to specific field.
                 String atMethodName = methodDeclaration.getMethodType().getName();
-                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType(), () -> "Parsing return type " + methodDeclaration.getReturnTypeExpression().toString() + " of method " + methodIdentifier);
+                Type returnType = atTypeConverter.convert(methodDeclaration.getMethodType().getReturnType(),
+                    () -> "Parsing return type " + methodDeclaration.getReturnTypeExpression().toString() + " of method " + methodIdentifier);
                 final List<FieldType> parameterTypes = methodDeclaration.getMethodType().getParameterTypes().stream()
                     .map((JavaType javaType) -> atTypeConverter.convert(javaType, () -> "Parsing parameter a of method " + methodIdentifier))
                     .map(t -> {

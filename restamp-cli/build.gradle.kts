@@ -1,9 +1,9 @@
 plugins {
     java
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "8.3.5"
 }
 
-java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 tasks.shadowJar { archiveClassifier.set("final"); mergeServiceFiles() }
 tasks.assemble { dependsOn(tasks.shadowJar) }
 tasks.jar {
@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     implementation(projects.restamp)
-    implementation("info.picocli:picocli:4.7.5")
+    implementation("info.picocli:picocli:4.7.6")
 }
 
 tasks.test {

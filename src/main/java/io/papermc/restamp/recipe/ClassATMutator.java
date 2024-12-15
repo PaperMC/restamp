@@ -4,7 +4,7 @@ import io.papermc.restamp.at.ModifierTransformationResult;
 import io.papermc.restamp.at.ModifierTransformer;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
@@ -14,6 +14,7 @@ import org.openrewrite.java.tree.J;
 /**
  * The {@link ClassATMutator} recipe is responsible for applying access transformers to class definitions across the source files provided.
  */
+@NullMarked
 public class ClassATMutator extends Recipe {
 
     private final AccessTransformSet atDictionary;
@@ -35,12 +36,11 @@ public class ClassATMutator extends Recipe {
     }
 
     @Override
-    public @NotNull TreeVisitor<?, ExecutionContext> getVisitor() {
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
         return new JavaIsoVisitor<>() {
-            @NotNull
             @Override
-            public J.ClassDeclaration visitClassDeclaration(@NotNull final J.ClassDeclaration unresolvedClassDeclaration,
-                                                            @NotNull final ExecutionContext executionContext) {
+            public J.ClassDeclaration visitClassDeclaration(final J.ClassDeclaration unresolvedClassDeclaration,
+                                                            final ExecutionContext executionContext) {
                 final J.ClassDeclaration classDeclaration = super.visitClassDeclaration(unresolvedClassDeclaration, executionContext);
                 if (classDeclaration.getType() == null) return classDeclaration;
 
@@ -58,12 +58,12 @@ public class ClassATMutator extends Recipe {
                 final ModifierTransformationResult transformationResult = modifierTransformer.transformModifiers(
                     accessTransform,
                     classDeclaration.getModifiers(),
-                    classDeclaration.getAnnotations().getKind().getPrefix()
+                    classDeclaration.getPadding().getKind().getPrefix()
                 );
 
                 return classDeclaration
                     .withModifiers(transformationResult.newModifiers())
-                    .getAnnotations().withKind(classDeclaration.getAnnotations().getKind().withPrefix(transformationResult.parentSpace()));
+                    .getPadding().withKind(classDeclaration.getPadding().getKind().withPrefix(transformationResult.parentSpace()));
             }
         };
     }

@@ -4,8 +4,8 @@ import org.cadixdev.at.AccessChange;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.at.ModifierChange;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
@@ -14,7 +14,7 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Parser;
 import org.openrewrite.SourceFile;
 import org.openrewrite.Tree;
-import org.openrewrite.java.Java17Parser;
+import org.openrewrite.java.Java21Parser;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 import org.openrewrite.marker.Markers;
@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 /**
  * A simple helper utility for function tests on restamp.
  */
+@NullMarked
 public class RestampFunctionTestHelper {
 
     /**
@@ -36,12 +37,11 @@ public class RestampFunctionTestHelper {
      *
      * @return the constructed restamp input.
      */
-    @NotNull
-    public static RestampInput inputFromSourceString(@NotNull final AccessTransformSet accessTransformSet,
-                                                     @NotNull final String javaClassSource) {
-        final Java17Parser java17Parser = Java17Parser.builder().build();
+    public static RestampInput inputFromSourceString(final AccessTransformSet accessTransformSet,
+                                                     final String javaClassSource) {
+        final Java21Parser javaParser = Java21Parser.builder().build();
         final InMemoryExecutionContext executionContext = new InMemoryExecutionContext(t -> Assertions.fail("Failed to parse inputs", t));
-        final List<SourceFile> sourceFiles = java17Parser.parseInputs(
+        final List<SourceFile> sourceFiles = javaParser.parseInputs(
             List.of(Parser.Input.fromString(javaClassSource)),
             null,
             executionContext
@@ -58,8 +58,7 @@ public class RestampFunctionTestHelper {
      *
      * @return the modifier that was created.
      */
-    @NotNull
-    public static J.Modifier modifierFrom(@NotNull final Space space, @NotNull final J.Modifier.Type type) {
+    public static J.Modifier modifierFrom(final Space space, final J.Modifier.Type type) {
         return new J.Modifier(Tree.randomId(), space, Markers.EMPTY, null, type, Collections.emptyList());
     }
 
@@ -71,9 +70,8 @@ public class RestampFunctionTestHelper {
      *
      * @return the stringify modifier.
      */
-    @NotNull
-    public static String accessChangeToModifierString(@NotNull final AccessChange accessChange,
-                                                      @Nullable final String @NotNull ... followingModifiers) {
+    public static String accessChangeToModifierString(final AccessChange accessChange,
+                                                      @Nullable final String... followingModifiers) {
         final String accessChangeAsModifier = switch (accessChange) {
             case PRIVATE -> "private";
             case PROTECTED -> "protected";
@@ -92,6 +90,10 @@ public class RestampFunctionTestHelper {
         }
 
         return stringBuilder.toString();
+    }
+
+    public record TestCodeStyle(boolean includesLeadingAnnotation, boolean leadingSpace) {
+
     }
 
     /**
@@ -114,11 +116,41 @@ public class RestampFunctionTestHelper {
 
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return provideArguments();
+        }
+
+        static Stream<? extends Arguments> provideArguments() {
             return MODIFIERS.stream().flatMap(given ->
                 MODIFIERS.stream().flatMap(target ->
-                    Stream.of("static", null).map(staticModifier -> Arguments.of(
-                        given, target, staticModifier
-                    ))
+                    Stream.of("static", null).map(staticModifier ->
+                        Arguments.of(given, target, staticModifier)
+                    )
+                )
+            );
+        }
+
+    }
+
+    /**
+     * An argument provider that provides all combinations of known visibility modifiers (private, public, protected and nothing (package private))
+     * and code styles as defined in {@link TestCodeStyle}.
+     */
+    public static final class CartesianVisibilityArgumentAndStyleProvider implements ArgumentsProvider {
+
+        private static Object[] concat(final Object[] first, final Object... other) {
+            final Object[] result = new Object[first.length + other.length];
+            System.arraycopy(first, 0, result, 0, first.length);
+            System.arraycopy(other, 0, result, first.length, other.length);
+            return result;
+        }
+
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+            return CartesianVisibilityArgumentProvider.provideArguments().flatMap(arguments ->
+                Stream.of(true, false).flatMap(includeAnnotation ->
+                    Stream.of(true, false).map(leadingSpace ->
+                        Arguments.arguments(concat(arguments.get(), new TestCodeStyle(includeAnnotation, leadingSpace)))
+                    )
                 )
             );
         }

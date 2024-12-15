@@ -8,7 +8,7 @@ import io.papermc.restamp.recipe.MethodATMutator;
 import org.cadixdev.at.AccessTransform;
 import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.bombe.type.signature.MethodSignature;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.Changeset;
 import org.openrewrite.config.CompositeRecipe;
 import org.openrewrite.internal.InMemoryLargeSourceSet;
@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 /**
  * The main executor of restamp.
  */
+@NullMarked
 public class Restamp {
 
     /**
@@ -29,8 +30,7 @@ public class Restamp {
      *
      * @return the computed changeset.
      */
-    @NotNull
-    public static Changeset run(@NotNull final RestampInput input) {
+    public static Changeset run(final RestampInput input) {
         final ModifierTransformer modifierTransformer = new ModifierTransformer();
         final AccessTransformerTypeConverter accessTransformerTypeConverter = new AccessTransformerTypeConverter();
         final AccessTransformSet accessTransformSet = input.accessTransformers();

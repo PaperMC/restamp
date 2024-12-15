@@ -6,7 +6,7 @@ import org.cadixdev.bombe.type.FieldType;
 import org.cadixdev.bombe.type.ObjectType;
 import org.cadixdev.bombe.type.Type;
 import org.cadixdev.bombe.type.VoidType;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 import org.openrewrite.java.tree.JavaType;
 
 import java.util.function.Supplier;
@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 /**
  * The access transformer type converter is responsible for converting between types from {@link Type} and rewrites {@link JavaType}.
  */
+@NullMarked
 public class AccessTransformerTypeConverter {
 
     private static final FieldType OBJECT = FieldType.of(Object.class);
@@ -29,8 +30,7 @@ public class AccessTransformerTypeConverter {
      *
      * @throws IllegalArgumentException if the passed java type could not be converted.
      */
-    @NotNull
-    public Type convert(@NotNull final JavaType javaType, @NotNull final Supplier<String> debugContext) throws IllegalArgumentException {
+    public Type convert(final JavaType javaType, final Supplier<String> debugContext) throws IllegalArgumentException {
         if (javaType instanceof final JavaType.Primitive primitive) {
             return switch (primitive) {
                 case Boolean -> BaseType.BOOLEAN;
@@ -77,7 +77,7 @@ public class AccessTransformerTypeConverter {
             throw new IllegalArgumentException("Cannot map unexpected type: " + unknown.getClassName() + ". " + debugContext.get());
         }
 
-        throw new IllegalArgumentException("Cannot map unexpected type: " + javaType.getJacksonPolymorphicTypeTag() + ". " + debugContext.get());
+        throw new IllegalArgumentException("Cannot map unexpected type: " + javaType + ". " + debugContext.get());
     }
 
 }

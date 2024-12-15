@@ -1,10 +1,10 @@
 plugins {
     `java-library`
     `maven-publish`
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "8.3.5"
 }
 
-java.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+java.toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 tasks.shadowJar { archiveClassifier.set("final"); mergeServiceFiles() }
 
 repositories {
@@ -12,12 +12,12 @@ repositories {
 }
 
 dependencies {
-    api("org.openrewrite:rewrite-java-17:8.7.4")
+    api("org.openrewrite:rewrite-java-21:8.40.3")
     api("org.cadixdev:at:0.1.0-rc1")
-    implementation("org.apache.logging.log4j:log4j-core:3.0.0-alpha1")
-    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.apache.logging.log4j:log4j-core:3.0.0-beta3")
+    implementation("org.slf4j:slf4j-api:2.0.16")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.7.1")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

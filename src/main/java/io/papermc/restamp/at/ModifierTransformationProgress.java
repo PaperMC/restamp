@@ -1,12 +1,10 @@
 package io.papermc.restamp.at;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.Space;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -42,23 +40,8 @@ import java.util.function.Supplier;
  * @see #mergeSpace(Space, Space)
  * @see #finaliseProgress(Supplier, Space)
  */
+@NullMarked
 public class ModifierTransformationProgress {
-
-    /**
-     * A comparator that compares whitespaces when merging {@link Space} types.
-     * We are generally not interested in merging spaces by just appending their whitespaces as, e.g. the following line
-     * <pre>{@code
-     * static private final int a = 0;
-     * }</pre>
-     * has a single space of whitespace in-front of both the {@code private} and {@code final} modifier.
-     * Simply appending these two would lead to a double space if both are removed.
-     * <p>
-     * Instead, we only use the longer whitespace or the one that has more new lines in them.
-     * This way, we preserve potential un-expected newlines while also not creating unnecessary white spaces.
-     */
-    private static final Comparator<String> WHITESPACE_COMPARATOR = Comparator
-        .<String>comparingInt(s -> countOccurrences(s, System.lineSeparator()))
-        .thenComparingInt(s -> s.length() - Math.max(0, s.lastIndexOf(System.lineSeparator())));
 
     /**
      * The insertion marker used by the progress to mark the suitable location for a later insertion of the modifier wanted.
@@ -67,19 +50,16 @@ public class ModifierTransformationProgress {
      * @param space  the space of the modifier when inserted, build up by the space of the dropped modifiers after the marker.
      * @param useful if the marker is still useful or if e.g. the wanted modifier was already found in the list of modifiers.
      */
-    public record InsertionMarker(int index, @NotNull Space space, boolean useful) {
+    public record InsertionMarker(int index, TrackedSpace space, boolean useful) {
 
-        @NotNull
-        InsertionMarker mergeSpace(@NotNull final Space space) {
-            return new InsertionMarker(index, ModifierTransformationProgress.mergeSpace(this.space, space), useful);
+        InsertionMarker mergeSpace(final TrackedSpace space) {
+            return new InsertionMarker(index, this.space.mergeSpace(space), useful);
         }
 
-        @NotNull
-        InsertionMarker space(@NotNull final Space space) {
+        InsertionMarker space(final TrackedSpace space) {
             return new InsertionMarker(index, space, useful);
         }
 
-        @NotNull
         InsertionMarker useless() {
             return new InsertionMarker(index, space, false);
         }
@@ -93,11 +73,11 @@ public class ModifierTransformationProgress {
      * @param resultingModifiers the list of modifiers.
      * @param updatedParentSpace the space of the parent after the transformation.
      */
-    public record Result(@NotNull List<J.Modifier> resultingModifiers, @NotNull Space updatedParentSpace) {
+    public record Result(List<J.Modifier> resultingModifiers, Space updatedParentSpace) {
 
     }
 
-    private Space unaccountedSpace = Space.EMPTY;
+    private TrackedSpace leadingSpace = new TrackedSpace(null);
     private final List<J.Modifier> modifiers;
     @Nullable private InsertionMarker validVisibilitySpot = null;
     private boolean mutatedFromOriginal = false;
@@ -122,18 +102,18 @@ public class ModifierTransformationProgress {
      *
      * @param modifier the modifier to keep.
      */
-    public void keepModifier(@NotNull J.Modifier modifier) {
-        // If there is a marker at the current index position, consume unaccounted for space into the marker instead of the kept modifier
+    public void keepModifier(J.Modifier modifier) {
+        // If there is a marker at the current index position, consume leading space into the marker instead of the kept modifier
         // to potentially later use for the new inserted modifier.
         if (validVisibilitySpot != null && validVisibilitySpot.useful && validVisibilitySpot.index() == this.modifiers.size() - 1) {
-            this.validVisibilitySpot = this.validVisibilitySpot.mergeSpace(unaccountedSpace);
-            this.unaccountedSpace = Space.EMPTY;
+            this.validVisibilitySpot = this.validVisibilitySpot.mergeSpace(leadingSpace);
+            this.leadingSpace = TrackedSpace.NULL;
         }
 
         // If we have unaccounted for space, consume it by prefixing it to the kept modifiers space.
-        if (!this.unaccountedSpace.isEmpty()) {
-            modifier = modifier.withPrefix(mergeSpace(this.unaccountedSpace, modifier.getPrefix()));
-            this.unaccountedSpace = Space.EMPTY;
+        if (this.leadingSpace.tracksSomething()) {
+            modifier = modifier.withPrefix(this.leadingSpace.mergeIfEmpty(modifier.getPrefix()).into());
+            this.leadingSpace = TrackedSpace.NULL;
         }
         this.modifiers.add(modifier);
     }
@@ -144,10 +124,10 @@ public class ModifierTransformationProgress {
      *
      * @param modifier the modifier to drop.
      */
-    public void dropModifier(@NotNull final J.Modifier modifier) {
+    public void dropModifier(final J.Modifier modifier) {
         final Space prefix = modifier.getPrefix();
 
-        this.unaccountedSpace = mergeSpace(this.unaccountedSpace, prefix);
+        this.leadingSpace = this.leadingSpace.mergeIfEmpty(prefix);
         this.mutatedFromOriginal = true;
     }
 
@@ -157,8 +137,8 @@ public class ModifierTransformationProgress {
      */
     public void proposeValidVisibilitySpot() {
         if (validVisibilitySpot != null) return;
-        this.validVisibilitySpot = new InsertionMarker(this.modifiers.size(), this.unaccountedSpace, true);
-        this.unaccountedSpace = Space.EMPTY;
+        this.validVisibilitySpot = new InsertionMarker(this.modifiers.size(), this.leadingSpace, true);
+        this.leadingSpace = TrackedSpace.NULL;
     }
 
     /**
@@ -168,7 +148,7 @@ public class ModifierTransformationProgress {
     public void recordFoundVisibilitySpot() {
         this.validVisibilitySpot = this.validVisibilitySpot != null
             ? this.validVisibilitySpot.useless()
-            : new InsertionMarker(0, Space.EMPTY, false);
+            : new InsertionMarker(0, TrackedSpace.NULL, false);
     }
 
     /**
@@ -180,27 +160,27 @@ public class ModifierTransformationProgress {
      *
      * @return the result instance.
      */
-    @NotNull
     public Result finaliseProgress(
-        @NotNull final Supplier<J.Modifier> visibilityModifierCreator,
-        @NotNull Space parentSpace
+        final Supplier<J.Modifier> visibilityModifierCreator,
+        Space parentSpace
     ) {
         // If we neither found the visibility nor found ones to remove, pretend we found a valid spot at index 0.
         if (this.validVisibilitySpot == null) {
-            this.validVisibilitySpot = new InsertionMarker(0, Space.EMPTY, true);
+            this.validVisibilitySpot = new InsertionMarker(0, TrackedSpace.NULL, true);
 
             // Use either the current first modifier's or the parent's space for the inserted one.
             // If we have no other modifier, we insert the only modifier here.
             // In that case, we also consume all unaccounted for space.
             if (!this.modifiers.isEmpty()) {
-                final J.Modifier currentFirstModifier = this.modifiers.get(0);
+                final J.Modifier currentFirstModifier = this.modifiers.getFirst();
                 final Space currentFirstPrefix = currentFirstModifier.getPrefix();
-                this.validVisibilitySpot = this.validVisibilitySpot.space(currentFirstPrefix); // set the space.
+                this.validVisibilitySpot = this.validVisibilitySpot.space(new TrackedSpace(currentFirstPrefix)); // set the space.
 
                 this.modifiers.set(0, currentFirstModifier.withPrefix(Space.SINGLE_SPACE));
             } else {
-                this.validVisibilitySpot = this.validVisibilitySpot.space(mergeSpace(this.unaccountedSpace, parentSpace));
-                this.unaccountedSpace = Space.EMPTY;
+                // Full merge with parent even if already tracking *some* space.
+                this.validVisibilitySpot = this.validVisibilitySpot.space(this.leadingSpace.mergeIfEmpty(parentSpace));
+                this.leadingSpace = TrackedSpace.NULL;
                 parentSpace = Space.SINGLE_SPACE;
             }
         }
@@ -213,78 +193,21 @@ public class ModifierTransformationProgress {
 
         // Prefix unaccounted for space into modifier marked as a valid visibility spot.
         // If we have a modifier to mutate, modify its space.
-        // Otherwise, prefix it to the unaccounted space left.
+        // Otherwise, if there are modifiers, merge it into the parent.
+        // If no modifiers remain, the parent space should remain empty, as it is the start of the expression.
         if (this.validVisibilitySpot.index < this.modifiers.size()) {
             final J.Modifier modifierToPrefixSpaceTo = this.modifiers.get(this.validVisibilitySpot.index);
             this.modifiers.set(
                 this.validVisibilitySpot.index,
-                modifierToPrefixSpaceTo.withPrefix(mergeSpace(this.validVisibilitySpot.space(), modifierToPrefixSpaceTo.getPrefix()))
+                modifierToPrefixSpaceTo.withPrefix(this.validVisibilitySpot.space().mergeIfEmpty(modifierToPrefixSpaceTo.getPrefix()).into())
             );
-            if (!this.validVisibilitySpot.space().isEmpty()) this.mutatedFromOriginal = true;
-        } else {
-            this.unaccountedSpace = mergeSpace(this.validVisibilitySpot.space(), this.unaccountedSpace);
+            if (!this.validVisibilitySpot.space().into().isEmpty()) this.mutatedFromOriginal = true;
         }
 
         // Merge the still unaccounted for space into the parent space
-        parentSpace = mergeSpace(this.unaccountedSpace, parentSpace);
+        parentSpace = this.leadingSpace.mergeIfEmpty(parentSpace).into();
 
         return new Result(this.modifiers, parentSpace);
-    }
-
-    /**
-     * Merges two spaces by contacting their comments and choosing the more applicable whitespace based on
-     * {@link ModifierTransformationProgress#WHITESPACE_COMPARATOR}. See the comparator for more documentation on the selection algorithm.
-     *
-     * @param a the first space to merge.
-     * @param b the second space to merge.
-     *
-     * @return the merged space.
-     */
-    @NotNull
-    public static Space mergeSpace(@NotNull final Space a, @NotNull final Space b) {
-        if (a.isEmpty()) return b;
-        if (b.isEmpty()) return a;
-
-        final String aWhitespace = a.getWhitespace();
-        final String bWhitespace = b.getWhitespace();
-        return Space.build(
-            WHITESPACE_COMPARATOR.compare(aWhitespace, bWhitespace) >= 0 ? aWhitespace : bWhitespace,
-            concat(a.getComments(), b.getComments())
-        );
-    }
-
-    /**
-     * Counts the occurrences of a substring in a larger parent string.
-     *
-     * @param string the string to count the occurrences of {@code match} in.
-     * @param match  the string to count the occurrences of.
-     *
-     * @return the amount of times {@code match} was found in {@code string}.
-     */
-    public static int countOccurrences(@NotNull final String string, @NotNull final String match) {
-        int counts = 0;
-        int currentMatchIndex = 0;
-        while ((currentMatchIndex = string.indexOf(match, currentMatchIndex)) >= 0) {
-            counts++;
-            currentMatchIndex += match.length();
-        }
-        return counts;
-    }
-
-    /**
-     * Concat two lists of type T.
-     *
-     * @param a   the first list to concat.
-     * @param b   the second list to concat.
-     * @param <T> the generic type of the content of the list.
-     *
-     * @return the concatted list.
-     */
-    private static <T> List<T> concat(final List<T> a, final List<T> b) {
-        final List<T> result = new ArrayList<>(a.size() + b.size());
-        result.addAll(a);
-        result.addAll(b);
-        return result;
     }
 
 }
